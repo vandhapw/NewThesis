@@ -1,0 +1,79 @@
+\documentclass[12pt]{report}
+
+\input{structures/libraries}
+
+
+% --- Document Start ---
+\begin{document}
+
+% --- Title Page ---
+\input{structures/title}
+
+% --- Approval Page ---
+\newpage
+% Approval content here
+\input{structures/approval_form}
+
+% --- Table of Contents ---
+\newpage
+\input{structures/table_of_content}
+
+% --- List of Tables and Figures ---
+\newpage
+\input{structures/list_table_figure}
+
+% --- Abstracts ---
+\newpage
+\chapter*{Abstract}
+\input{structures/kor_abstract}
+
+\newpage
+\chapter*{Abstract}
+\input{structures/eng_abstract}
+
+
+% --- Main Text ---
+\chapter{Introduction}
+% Main body text in 11pt Shinmyungjo style.
+\input{structures/introduction}
+
+% ------ Related Works ------------------% 
+\chapter{Related Works}
+\input{structures/related_works}
+
+% ------ methods ------------------% 
+\chapter{Methods}
+\input{structures/method}
+
+% ------ Experimental Results ------------------% 
+\chapter{Experimental Result}
+\input{structures/experimental}
+
+% ------ Analysis and Discussion ------------------% 
+\chapter{Analysis and Discussion}
+\input{structures/analysis_discussion}
+
+% ------ Conclusion ------------------% 
+\chapter{Conclusion}
+\input{structures/conclusion}
+
+% --- References ---
+\newpage
+% \chapter*{References}
+\input{structures/references}
+
+% --- Appendices ---
+\input{structures/appendix}
+
+% --- Acknowledgements ---
+\newpage
+\chapter*{Acknowledgements}
+\input{structures/acknowledgment}
+
+% --- List of Publications ---
+\newpage
+\chapter*{List of Publications}
+\input{structures/publication_list}
+
+
+\end{document}
