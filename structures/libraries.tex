@@ -44,11 +44,11 @@
 
 % --- Heading Styles ---
 % Chapter title: 15 pt, bold, centered.
-% [hang] places label and title on the same line; reduce separation to 3 pt.
-\titleformat{\chapter}[hang]
+% [display] places label and title on separate lines (vertical stack).
+\titleformat{\chapter}[display]
   {\normalfont\bfseries\centering\fontsize{15pt}{18pt}\selectfont}
   {\chaptername\ \thechapter}{3pt}{\fontsize{15pt}{18pt}\selectfont}
-\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+\titlespacing*{\chapter}{0pt}{0pt}{20pt}
 
 % Section (subjudul): 13 pt, bold
 \titleformat{\section}
