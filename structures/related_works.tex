@@ -1,14 +1,21 @@
 \section{Foundations of Smart Manufacturing and Industry 4.0}
 
-\input{figures/industry40_evolution}
-
 \subsection{Evolution of Manufacturing Paradigms}
 
 The transition from traditional manufacturing to smart manufacturing represents one of the most significant industrial transformations of the twenty-first century \cite{mobley_introduction_2002, jardine_review_2006}. As established in Chapter~1, Industry~4.0 integrates cyber-physical systems, the Industrial Internet of Things, cloud computing, and artificial intelligence to create autonomous, self-optimising production environments. This section reviews the literature spanning the foundational technologies that enable such environments, the anomaly detection and predictive maintenance methods applied within them, the emerging roles of quantum computing and agentic AI, and the comparative state of existing integrated approaches.
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/images/industry40_evolution.png}
+    \caption{Evolution of manufacturing paradigms from Industry 1.0 to Industry 4.0, illustrating the progression from mechanization through cyber-physical systems. Image adapted from Wikimedia Commons (CC BY-SA 4.0).}
+    \label{fig:industry40_evolution}
+\end{figure}
+
+The four industrial revolutions, depicted in Figure~\ref{fig:industry40_evolution}, mark distinct shifts in production philosophy. Industry~1.0 introduced mechanization powered by water and steam, replacing manual craftsmanship with machine-based manufacturing. Industry~2.0 brought mass production through electrification and assembly lines, enabling standardized output at unprecedented scale. Industry~3.0 added automation through programmable logic controllers and computer-aided manufacturing, decoupling production rate from direct human intervention. Industry~4.0 represents the current frontier, where cyber-physical systems, industrial IoT, and artificial intelligence converge to create self-monitoring, self-configuring, and self-optimising factories that respond in real time to operational conditions.
+
 \subsection{Cyber-Physical Systems and Industrial IoT}
 
-Smart manufacturing facilities are instrumented with dense networks of sensors that continuously stream multivariate time-series data encompassing temperature, vibration, humidity, pressure, and energy consumption. The empirical dataset analysed in this thesis, comprising 100,000 sensor readings from 50 machines over 69 days, exemplifies the data volumes and heterogeneity characteristic of real deployments. Beyond volume, these environments exhibit non-stationary distributions that drift with operational context, heterogeneous modalities with disparate scales, and strict latency requirements for autonomous decision-making \cite{zhang_unsupervised_2021}. Jain et al. \cite{jain_anomaly_2016} investigate anomaly detection in smart-city wireless sensor networks, demonstrating that spatial correlation between co-located sensors and robust handling of sensor failures versus genuine anomalies provide methodological insights directly transferable to the 50-machine industrial fleet studied herein.
+Smart manufacturing facilities are instrumented with dense networks of sensors that continuously stream multivariate time-series data encompassing temperature, vibration, humidity, pressure, and energy consumption. These environments are characterized by high data volumes and heterogeneity, non-stationary distributions that drift with operational context, heterogeneous modalities with disparate scales, and strict latency requirements for autonomous decision-making \cite{zhang_unsupervised_2021}. Jain et al. \cite{jain_anomaly_2016} investigate anomaly detection in smart-city wireless sensor networks, demonstrating that spatial correlation between co-located sensors and robust handling of sensor failures versus genuine anomalies provide methodological insights directly transferable to industrial fleet deployments.
 
 \subsection{Data-Driven Maintenance Intelligence}
 
