@@ -24,7 +24,7 @@ The empirical consequences of siloed modelling are directly observable in the da
 
 The Temporal Graph Convolutional Network (T-GCN) layer provides 30-minute ahead forecasts of all five sensor channels across the 50-machine pool. The T-GCN architecture is structured around four stages, as illustrated in Figure~\ref{fig:tgcn_architecture}.
 
-\input{figures/tgcn_architecture}
+\input{figures/images/tgcn_architecture}
 
 \paragraph{Stage 1: Data Engineering and Feature Preparation.} Raw sensor readings are augmented with two engineered features: a heat-stress proxy \texttt{temp\_vibe\_idx} = temperature $\times$ vibration, capturing combined thermal and mechanical loading; and an efficiency proxy \texttt{press\_energy\_ratio} = energy\_consumption / (pressure + 0.1), capturing hydraulic efficiency degradation. The resulting seven-variable feature set is preprocessed using sensor-specific rolling mean smoothing (window~10 for vibration, 5 for others), first-order differencing for stationarity, and StandardScaler normalization fitted on the training split. A 10-step sliding window partitions the differenced, scaled sequences into input-output training pairs.
 
@@ -75,7 +75,7 @@ The \texttt{MultiAgentOrchestrator} sequences the nine LLM agents such that each
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/agentic_ai_architecture.png}
+    \includegraphics[width=\textwidth]{figures/images/agentic_ai_architecture.png}
     \caption{Agentic AI Smart Manufacturing Architecture: The six-stage pipeline from Kafka data ingestion through the \texttt{ContextMemoryStore}, \texttt{ReasoningEngine}, \texttt{MultiAgentOrchestrator} (nine LLM agents: Monitoring, Diagnosis, Planning, Reporting, Correlation, Explainability, Self-Reflection, Scheduling, Pattern Learning), Action Layer with human-in-the-loop approval for high-risk actions, and \texttt{LearningLoop} for threshold adaptation and T-GCN retraining.}
     \label{fig:agentic_ai_architecture}
 \end{figure}
@@ -121,7 +121,7 @@ The quantum computing layer applies three quantum algorithms to augment the clas
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/quantum_agent_architecture.png}
+    \includegraphics[width=\textwidth]{figures/images/quantum_agent_architecture.png}
     \caption{Integrated Quantum-Agentic architecture: The Heuristic Layer (Pauli-Z encoding, QUBO-formulated local search, QAOA-formulated graph scheduling) runs once per machine batch and feeds a consolidated heuristic context into the per-machine Agentic Decision Loop. The \texttt{should\_quantum\_override} gate escalates machines with heuristic danger signals regardless of classical risk level. The Learning Loop at the bottom implements Q-FN feedback and threshold adaptation.}
     \label{fig:quantum_agent_architecture}
 \end{figure}
