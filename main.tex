@@ -45,9 +45,11 @@
 
 % ------ Literature Review ------------------%
 \renewcommand{\thechapter}{\Roman{chapter}}
+\renewcommand{\thesection}{\arabic{chapter}.\arabic{section}}
 \chapter{Literature Review}
 \input{structures/related_works}
 \renewcommand{\thechapter}{\arabic{chapter}}
+\renewcommand{\thesection}{\thechapter.\arabic{section}}
 
 % ------ methods ------------------%
 \chapter{Quantum-Agentic Smart Manufacturing Framework}
