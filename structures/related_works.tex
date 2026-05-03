@@ -23,7 +23,32 @@ The convergence of big data analytics and industrial automation has enabled a sh
 
 \section{Anomaly Detection in Manufacturing}
 
-\input{figures/anomaly_taxonomy}
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.9\textwidth}
+\small
+\begin{verbatim}
+           Deep Anomaly Detection [Chalapathy2019]
+                     |
+       +-------------+-------------+
+       |             |             |
+       v             v             v
+   Supervised   Semi-Supervised  Unsupervised
+       |             |             |
+   +---+---+     +---+---+     +---+---+
+   |       |     |       |     |       |
+   v       v     v       v     v       v
+  CNN    RNN/LSTM  AE     VAE   GAN   Deep
+Classifier          Autoencoder   -based Clustering
+
+Key Insight: Reconstruction-based methods trained on normal-only
+    data achieve superior performance in imbalanced industrial
+    settings [pang_deep_2021]
+\end{verbatim}
+\end{minipage}
+\caption{Taxonomy of deep learning-based anomaly detection paradigms and architectures reviewed in the literature, highlighting the effectiveness of reconstruction-based methods for industrial settings.}
+\label{fig:anomaly_taxonomy}
+\end{figure}
 
 \subsection{Deep Learning-Based Anomaly Detection}
 
@@ -43,7 +68,45 @@ The specific requirements of real-time anomaly detection in industrial IoT setti
 
 \section{Predictive Maintenance Approaches}
 
-\input{figures/pdm_pipeline}
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.95\textwidth}
+\small
+\begin{verbatim}
+ Multi-Sensor Streams    Feature Engineering    Degradation Labels
+(Temp,Vib,Hum,Press,Eng)   (RUL,Health Indicators) (Failure, Maint)
+         |                         |                        |
+         v                         v                        v
+ +----------------+     +----------------+    +----------------+
+ |  Statistical   |     |   Deep Learning|    |   Ensemble     |
+ |  Models        |     |   (LSTM,CNN,GCN)|   |   (XGB,LightGBM)|
+ |  (SPC, HMM)    |     |                |    |                |
+ +--------+-------+     +--------+-------+    +--------+-------+
+          |                      |                     |
+          v                      v                     v
+ +--------+-------+     +--------+-------+    +--------+-------+
+ | Anomaly        |     | RUL            |    | Maintenance    |
+ | Detection      |     | Prediction     |    | Scheduling     |
+ +--------+-------+     +--------+-------+    +--------+-------+
+          |                      |                     |
+          +----------+-----------+---------------------+
+                     |
+                     v
+            +--------+-------+
+            |  Maintenance   |
+            |  Action        |
+            +--------+-------+
+                     |
+                     |  (Feedback Loop)
+                     +----------------> Degradation Labels
+
+Research Gap: Existing approaches treat these stages as isolated
+problems rather than a unified workflow [kendall_multi-task_2017]
+\end{verbatim}
+\end{minipage}
+\caption{Predictive maintenance pipeline stages from multi-sensor data ingestion to maintenance action, illustrating the fragmentation of existing approaches that QASAMAP addresses through unified multi-task learning.}
+\label{fig:pdm_pipeline}
+\end{figure}
 
 \subsection{Classical and Statistical Prognostics}
 
@@ -63,7 +126,47 @@ Transfer learning enables models pre-trained on publicly available datasets to b
 
 \section{Agent-Based Systems and Agentic AI in Manufacturing}
 
-\input{figures/agentic_architecture_lit}
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.9\textwidth}
+\small
+\begin{verbatim}
+                    +------------------------+
+                    | ContextMemoryStore     |
+                    | (Sliding Window +      |
+                    |  Decision Log)         |
+                    +-----------+------------+
+                                ^
+                                | (learning loop)
+                                |
+        +----------+    +-------+-------+    +----------+
+        | Monitoring|    |               |    | Planning |
+        |  Agent    +-->| MultiAgent    +--->|  Agent   |
+        +----------+    | Orchestrator  |    +----------+
+        +----------+    |   (LLM Core)  |    +----------+
+        | Diagnosis |    |               |    |Scheduling|
+        |  Agent    +--->|               +--->|  Agent   |
+        +----------+    +-------+-------+    +----------+
+        +----------+            |            +----------+
+        |Correlation|           |            |Reporting |
+        |  Agent    +----------->+            |  Agent   |
+        +----------+            |            +----------+
+                              |
+                    +---------+---------+
+                    |                   |
+              +-----+-----+     +-------+-------+
+              |Explainability|   |Self-Reflection|
+              |   Agent      |   |    Agent      |
+              +-------------+    +---------------+
+                    +----------+
+                    | Pattern  |
+                    | Learning |
+                    +----------+
+\end{verbatim}
+\end{minipage}
+\caption{Agentic AI architecture comprising nine LLM-powered agents coordinated by the MultiAgentOrchestrator, illustrating the perception-reasoning-action cycle with contextual memory and continuous learning \cite{sapkota\_ai\_2026, AbouAli2026}.}
+\label{fig:agentic_architecture_lit}
+\end{figure}
 
 \subsection{From Multi-Agent Systems to Agentic AI}
 
@@ -83,7 +186,49 @@ The application of large language models to sensor data understanding represents
 
 \section{Quantum Computing and Quantum-Inspired AI for Manufacturing}
 
-\input{figures/quantum_landscape}
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.95\textwidth}
+\small
+\begin{verbatim}
+                        +------------------------+
+                        |   NISQ Era (Preskill  |
+                        |   2018) [Preskill2018] |
+                        +-----------+------------+
+                                    |
+            +-----------------------+-----------------------+
+            |                       |                       |
+            v                       v                       v
+    +---------------+       +---------------+       +---------------+
+    | Quantum       |       | Gate-Based QC |       | Hybrid Q-C    |
+    | Annealing     |       | (IBM, Google, |       | (Variational) |
+    | (D-Wave)      |       | IonQ)         |       |               |
+    +---------------+       +---------------+       +---------------+
+    | Qubits: ~5000+|       | Qubits: 27-   |       | Classical     |
+    | Topology:     |       | 1000+         |       | Optimizer     |
+    | Pegasus       |       | Gate fid: 99% |       | +             |
+    |               |       |               |       | Parameterized |
+    | QUBO / Ising  |       | QAOA, VQE,    |       | Quantum       |
+    | Optimization  |       | Quantum ML    |       | Circuits      |
+    +---------------+       +---------------+       +---------------+
+            |                       |                       |
+            +-----------------------+-----------------------+
+                                    |
+                                    v
+            +-----------------------------------------------+
+            |  Manufacturing Applications:                  |
+            |  - Maintenance Scheduling (QUBO)            |
+            |    [dalyac_qualifying_2021]                   |
+            |  - Vehicle Routing (QAOA)                   |
+            |    [rosendo_quantum_2025]                     |
+            |  - Sensor Fusion (Quantum ML)               |
+            |    [kreplin_squlearn_2025]                    |
+            +-----------------------------------------------+
+\end{verbatim}
+\end{minipage}
+\caption{Quantum computing paradigms in the NISQ era, spanning quantum annealing, gate-based processors, and hybrid variational architectures, with applications to manufacturing optimization reviewed in the literature.}
+\label{fig:quantum_landscape}
+\end{figure}
 
 \subsection{Quantum Optimization Foundations}
 
@@ -103,7 +248,50 @@ Hybrid quantum-classical architectures combine quantum subroutines with classica
 
 \section{Toward Quantum-Agentic Smart Manufacturing for Anomaly Detection and Predictive Maintenance}
 
-\input{figures/quantum_agentic_convergence}
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.95\textwidth}
+\small
+\begin{verbatim}
+    Existing Approaches                    QASAMAP Unified Framework
+    +------------------+                   +------------------------+
+    | Anomaly Detection|                   | T-GCN Forecasting      |
+    | (Deep Learning)  |                   | (Spatiotemporal)       |
+    +--------+---------+                   +-----------+------------+
+             |                                         |
+             v                                         v
+    +--------+---------+                   +-----------+------------+
+    | Prognostics      |                   | Supervised Learning    |
+    | (RUL Estimation) |                   | (Multi-Task)           |
+    +--------+---------+                   +-----------+------------+
+             |                                         |
+             v                                         v
+    +--------+---------+                   +-----------+------------+
+    | Scheduling       |                   | Quantum-Inspired       |
+    | (Classical     |                   | Heuristics             |
+    |  Heuristics)     |                   |                        |
+    +--------+---------+                   +-----------+------------+
+             |                                         |
+             |   [Gaps: Siloed,                       |   (cross-layer
+             |    No shared                          |    links)
+             |    representation]                    |
+             v                                         v
+                                   +------------------------+
+                                   | Agentic AI             |
+                                   | (Autonomous Decisions) |
+                                   +------------------------+
+                                   |                        |
+                                   |  Integration: Shared   |
+                                   |  sensor representations|
+                                   |  feed both heuristic   |
+                                   |  optimization and      |
+                                   |  agentic decision-making|
+                                   +------------------------+
+\end{verbatim}
+\end{minipage}
+\caption{Convergence of quantum computing and agentic AI paradigms within the QASAMAP framework, contrasting traditional siloed approaches with the proposed unified architecture that integrates spatiotemporal forecasting, multi-task learning, quantum-inspired heuristics, and autonomous agentic orchestration.}
+\label{fig:quantum_agentic_convergence}
+\end{figure}
 
 \subsection{Integration of Quantum and Agentic Paradigms}
 
@@ -115,7 +303,30 @@ The most significant limitation of existing approaches is the absence of integra
 
 \section{Comparative Analysis of Latest Existing Approaches}
 
-\input{figures/comparative_matrix}
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}{0.95\textwidth}
+    \begin{verbatim}
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | Method                 | Anomaly Detection| RUL Prediction   | Scheduling| Agentic | Closed-Loop Adapt.  |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | TSMAE [Gao2022]        |        ✓         |        ✗         |     ✗     |    ✗    |         ✗           |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | QAOA [rosendo2025]     |        ✗         |        ✗         |     ✓     |    ✗    |         ✗           |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | Agentic RAG [singh2025]|        ✗         |        ✗         |     ✗     |    ✓    |         ✗           |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | Kendall et al. [2017]  |      Partial     |      Partial     |     ✗     |    ✗    |         ✗           |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+    | QASAMAP (This Thesis)  |        ✓         |        ✓         |     ✓     |    ✓    |         ✓           |
+    +------------------------+------------------+------------------+-----------+---------+---------------------+
+
+    Legend:  ✓ = Full Support    ✗ = Not Supported    Partial = Partial Support
+    \end{verbatim}
+    \end{minipage}
+    \caption{Comparative analysis matrix of latest existing approaches across five predictive maintenance capabilities, highlighting the fragmentation of prior work and the unified coverage achieved by QASAMAP.}
+    \label{fig:comparative_matrix}
+\end{figure}
 
 \subsection{Limitations of Current Methodologies}
 
