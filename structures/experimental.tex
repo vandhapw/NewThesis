@@ -1,12 +1,12 @@
-\subsection{Dataset Description and Experimental Setup}
+\section{Dataset Description and Experimental Setup}
 
 The empirical foundation of this thesis rests on a real-world smart manufacturing sensor dataset comprising 100,000 timestamped observations collected from a group of 50 industrial machines over a continuous 69-day monitoring period spanning from January 1, 2025 at 00:00:00 to March 11, 2025 at 10:39:00. Each observation records the simultaneous state of thirteen variables: a timestamp, a machine identifier (ranging from 1 to 50), five continuous sensor channels (temperature, vibration, humidity, pressure, and energy consumption), three derived condition indicators (machine status, anomaly flag, and downtime risk), and three maintenance-relevant labels (predicted remaining useful life, failure type, and maintenance required). The dataset is complete with no missing values across all 1,300,000 individual data points, a property that reflects the robust data quality management practices of the industrial monitoring system from which it was collected.
 
 The dataset directly operationalizes three distinct experimental pipelines implemented across the three QASAMAP code components. The full 100,000-observation dataset is loaded, feature-engineered, and partitioned into per-machine training (80\%) and test (20\%) splits for T-GCN and comparative model training and evaluation. A representative five-event sample from Machine 40 spanning 10:40:00 to 10:44:00 on March 11, 2025 serves as the streaming inference demonstration. A multi-machine sample of 11 events covering machines 1, 2, 3, 4, 32, 40, and 47 provides the basis for the full quantum-agentic pipeline demonstration and three-way comparative analysis. All experiments were executed on a server equipped with an NVIDIA A100-SXM4-80GB GPU, which provided the computational environment for deep learning model training in the forecasting and classification experiments.
 
-The experimental evaluation is organized into four distinct components: (1) spatiotemporal forecasting model comparison across T-GCN and LSTM-based architectures; (2) machine health classification and regression across five supervised learning algorithms; (3) agentic AI pipeline evaluation without quantum enhancement; and (4) agentic AI pipeline evaluation with full quantum computing integration. Together, these four components provide a complete empirical characterisation of the QASAMAP framework, enabling both component-level analysis and full-system performance attribution.
+The experimental evaluation is organized into four distinct components: (1) spatiotemporal forecasting model comparison across T-GCN and LSTM-based architectures; (2) machine health classification and regression across five supervised learning algorithms; (3) agentic AI pipeline evaluation without quantum enhancement; and (4) agentic AI pipeline evaluation with full quantum computing integration. The first two components are presented in this chapter; the latter two are presented in Chapters~\ref{chap:agentic} and~\ref{chap:quantum} respectively.
 
-\subsection{Sensor and Target Variable Summary}
+\section{Sensor and Target Variable Summary}
 
 The five continuous sensor channels exhibit the statistical profiles summarized in Table~\ref{tab:sensor_stats}. Temperature is the most discriminative sensor for anomaly detection, with a mean of 75.02\textdegree C and a Pearson correlation of $r = 0.447$ with the anomaly flag. Vibration shows a 19\% elevation in anomalous readings (mean 58.51) compared to normal readings (mean 49.18) and is the primary indicator of the Vibration Issue failure type. Humidity exhibits near-zero linear correlation with anomaly occurrence, contributing to fault detection through nonlinear interaction effects captured by the deep learning layers. Pressure and energy consumption similarly show weak linear correlations with anomaly occurrence but contribute to the detection of Pressure Drop and Electrical Fault failure types respectively.
 
@@ -62,6 +62,9 @@ RUL (hours)          & Mean: 234.27 h           & Std: 150.06 h   \\
 \hline
 \end{tabular}
 \end{table}
+
+
+\section{Spatiotemporal Forecasting with T-GCN}
 
 \subsection{Forecasting Model Experiment}
 
@@ -122,7 +125,7 @@ The T-GCN with cross-correlation adjacency achieves the highest average R\textsu
 
 Although the T-GCN requires a longer training time (111.28 seconds vs.\ 52.56 seconds for the standalone LSTM), this overhead is attributable to the graph convolution operations over 538 edges during each forward pass and is acceptable given the significant performance gains. The Hybrid LSTM-GCN achieves intermediate R\textsuperscript{2} performance (0.7134) with the shortest training time (47.89 seconds), offering a practical trade-off when computational resources are constrained.
 
-\subsubsection{Forecasting Experiment Visualisations}
+\subsection{Forecasting Experiment Visualisations}
 
 \paragraph{Cross-Correlation Strength Matrix.}
 Figure~\ref{fig:cc_matrix} presents the pairwise cross-correlation strength matrix computed from the temperature time series of the first 20 machines in the dataset. Each cell $(i, j)$ encodes the absolute Pearson correlation between machine $i$ and machine $j$ at the lag of maximum correlation. The diagonal entries are identically 1.0 (each machine is perfectly correlated with itself), while off-diagonal entries reveal the inter-machine temperature coupling structure that defines the T-GCN adjacency graph. The predominance of light-yellow and light-orange cells indicates that most machine pairs exhibit weak to negligible direct linear coupling ($|r| < 0.35$), consistent with independent production lines operating under shared environmental conditions. Scattered deeper-orange and red cells identify specific machine pairs --- notably machines 3--13, 17--19, and 19--20 --- with moderate negative correlations, suggesting thermal counter-cycling patterns in which one machine's heat signature inversely predicts another's at a characteristic lag. Only machine pairs with $|r| > 0.35$ are retained as directed edges in the T-GCN graph, yielding the 538 edges that constitute the spatial backbone of the model.
@@ -184,11 +187,115 @@ Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versu
     \label{fig:pred_vs_actual}
 \end{figure}
 
-\subsection{Regression and Classification Model Experiment}
+\subsection{Mathematical Formulations of Forecasting Models}
+
+\subsubsection{Cross-Correlation Lag Graph Construction}
+
+The T-GCN spatial backbone is a directed weighted graph $G = (V, E, W)$ constructed from pairwise lagged cross-correlations of the temperature time series. For each ordered machine pair $(m_i, m_j)$, the cross-correlation function at integer lag $\tau$ is:
+\begin{equation}
+    \rho_{ij}(\tau) = \frac{\sum_{t=1}^{T-|\tau|} \bigl(T_i(t) - \bar{T}_i\bigr)\bigl(T_j(t+\tau) - \bar{T}_j\bigr)}
+    {\sqrt{\sum_{t}(T_i(t)-\bar{T}_i)^2}\sqrt{\sum_{t}(T_j(t)-\bar{T}_j)^2}}
+    \label{eq:xcorr}
+\end{equation}
+where $T_i(t)$ is the temperature reading of machine $i$ at timestep $t$, $\bar{T}_i$ is its time-series mean, and $\tau \in \{-10, -9, \ldots, +10\}$. The lag of maximum absolute correlation and its strength are recorded as:
+\begin{equation}
+    \tau^*_{ij} = \arg\max_{\tau} |\rho_{ij}(\tau)|, \qquad
+    s_{ij} = |\rho_{ij}(\tau^*_{ij})|
+    \label{eq:best_lag}
+\end{equation}
+A directed edge $e_{ij}$ with weight $s_{ij}$ is added to $G$ if and only if $s_{ij} > 0.35$. The resulting adjacency matrix $A \in \mathbb{R}^{N \times N}$ (where $N = 50$) is then symmetrically normalised as:
+\begin{equation}
+    \hat{A} = D^{-1/2} A D^{-1/2}
+    \label{eq:norm_adj}
+\end{equation}
+where $D_{ii} = \sum_j A_{ij}$ is the degree matrix. This normalisation ensures that the spectral radius of $\hat{A}$ is bounded by 1, preventing gradient explosion during graph convolution. The construction yields 538 directed edges, with Machine~40 having the highest out-degree centrality $d^+_{40} = \sum_j A_{40j}$.
+
+\subsubsection{Graph Convolutional Network Layer}
+
+Each Graph Convolutional (GCN) layer propagates information across the machine graph by computing a weighted aggregation of neighbouring node features. For layer $\ell$ at timestep $t$, the forward pass is:
+\begin{equation}
+    H^{(\ell+1)}_t = \sigma\!\left(\hat{A}\, H^{(\ell)}_t\, W^{(\ell)}\right)
+    \label{eq:gcn}
+\end{equation}
+where $H^{(\ell)}_t \in \mathbb{R}^{N \times d_\ell}$ is the node feature matrix at layer $\ell$ (with $d_0 = 7$ input features), $W^{(\ell)} \in \mathbb{R}^{d_\ell \times d_{\ell+1}}$ is the learnable weight matrix ($d_1 = d_2 = 64$), and $\sigma(\cdot)$ denotes the ReLU activation. Dropout with $p = 0.2$ is applied after each GCN layer. The two-layer GCN produces spatial embeddings $H^{(2)}_t \in \mathbb{R}^{N \times 64}$ capturing cross-machine correlations at each timestep.
+
+The spectral motivation for Equation~\ref{eq:gcn} follows from the graph Fourier transform: the normalised adjacency $\hat{A}$ is a first-order approximation of the graph Laplacian filter $\tilde{L} = I - \hat{A}$, and applying $\hat{A}$ to node features is equivalent to low-pass filtering on the graph spectral domain, smoothing feature values across strongly correlated machine neighbours.
+
+\subsubsection{Gated Recurrent Unit (GRU) Temporal Layer}
+
+The GRU layer processes the sequence of GCN-encoded spatial embeddings $\{H^{(2)}_1, H^{(2)}_2, \ldots, H^{(2)}_W\}$ (window length $W = 10$) to model temporal evolution. For each machine node independently, the GRU update equations at timestep $t$ are:
+\begin{align}
+    z_t &= \sigma_g\!\left(W_z x_t + U_z h_{t-1} + b_z\right)  \label{eq:gru_update} \\
+    r_t &= \sigma_g\!\left(W_r x_t + U_r h_{t-1} + b_r\right)  \label{eq:gru_reset} \\
+    \tilde{h}_t &= \tanh\!\left(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h\right)  \label{eq:gru_candidate} \\
+    h_t &= (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t  \label{eq:gru_hidden}
+\end{align}
+where $x_t \in \mathbb{R}^{64}$ is the GCN embedding at time $t$, $h_{t-1} \in \mathbb{R}^{128}$ is the previous hidden state, $z_t$ is the update gate controlling how much of the previous state is retained, $r_t$ is the reset gate controlling how much past information is forgotten, $\tilde{h}_t$ is the candidate hidden state, and $\odot$ denotes elementwise multiplication. $\sigma_g(\cdot)$ is the sigmoid function. Two stacked GRU layers with hidden size 128 are used, with Dropout 0.2 applied between layers.
+
+The update gate $z_t$ implements an adaptive interpolation between the previous hidden state $h_{t-1}$ (long-term temporal memory) and the candidate $\tilde{h}_t$ (new information), which is critical for industrial sensor modelling where degradation occurs over multiple time scales simultaneously.
+
+\subsubsection{T-GCN Training Objective and Backpropagation}
+
+The T-GCN is trained to minimise the mean squared error between predicted and actual next-step differenced sensor values over all machines and sensor channels:
+\begin{equation}
+    \mathcal{L}_{\text{MSE}} = \frac{1}{N \cdot F \cdot |\mathcal{B}|} \sum_{b \in \mathcal{B}} \sum_{i=1}^{N} \sum_{f=1}^{F}
+    \left(\hat{y}^{(b)}_{i,f} - y^{(b)}_{i,f}\right)^2
+    \label{eq:tgcn_loss}
+\end{equation}
+where $N = 50$ is the number of machines, $F = 7$ is the number of sensor channels (including engineered features), $\mathcal{B}$ is the mini-batch, $\hat{y}^{(b)}_{i,f}$ is the model prediction, and $y^{(b)}_{i,f}$ is the ground-truth value. The loss is backpropagated through time (BPTT) across the GRU unrolling and through the GCN graph structure using the normalised adjacency gradient:
+\begin{equation}
+    \frac{\partial \mathcal{L}}{\partial W^{(\ell)}} = \sum_{t=1}^{W} \left(H^{(\ell)}_t\right)^T \hat{A}^T \frac{\partial \mathcal{L}}{\partial H^{(\ell+1)}_t}
+    \label{eq:gcn_grad}
+\end{equation}
+Optimisation uses Adam with learning rate $\eta = 5 \times 10^{-4}$, weight decay $\lambda = 10^{-5}$, and cosine annealing schedule $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$. Gradient clipping at $\|\nabla\|_2 \leq 1.0$ prevents instability during BPTT. The two engineered input features are defined as:
+\begin{equation}
+    x_{\text{temp\_vibe}} = T_i \times V_i, \qquad
+    x_{\text{press\_energy}} = \frac{E_i}{P_i + 0.1}
+    \label{eq:eng_feat}
+\end{equation}
+where $T_i$, $V_i$, $E_i$, $P_i$ are temperature, vibration, energy, and pressure for machine $i$ respectively.
+
+\subsubsection{LSTM Baseline Formulation}
+
+The OptimizedLSTM baseline processes each machine's sensor sequence independently without graph structure. The LSTM cell equations at timestep $t$ are:
+\begin{align}
+    f_t &= \sigma_g(W_f [h_{t-1}, x_t] + b_f)  \label{eq:lstm_forget} \\
+    i_t &= \sigma_g(W_i [h_{t-1}, x_t] + b_i)  \label{eq:lstm_input} \\
+    o_t &= \sigma_g(W_o [h_{t-1}, x_t] + b_o)  \label{eq:lstm_output} \\
+    \tilde{c}_t &= \tanh(W_c [h_{t-1}, x_t] + b_c)  \label{eq:lstm_candidate} \\
+    c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t  \label{eq:lstm_cell} \\
+    h_t &= o_t \odot \tanh(c_t)  \label{eq:lstm_hidden}
+\end{align}
+where $f_t$, $i_t$, $o_t$ are the forget, input, and output gates respectively, $c_t$ is the cell state carrying long-range temporal information, and $\tilde{c}_t$ is the candidate cell update. The distinction between $c_t$ (additive cell state) and $h_t$ (gated output) enables LSTMs to model long-range dependencies more effectively than vanilla RNNs by allowing gradients to flow through the additive cell state path with minimal attenuation.
+
+The Hybrid LSTM-GCN concatenates the GCN spatial embedding $H^{(2)}_t \in \mathbb{R}^{N \times 64}$ with the LSTM hidden state $h_t \in \mathbb{R}^{N \times 128}$ before the output head:
+\begin{equation}
+    z_{\text{hybrid},t} = [H^{(2)}_t \,\|\, h_t] \in \mathbb{R}^{N \times 192}
+    \label{eq:hybrid}
+\end{equation}
+where $[\cdot \| \cdot]$ denotes feature-dimension concatenation. The output head maps this to predictions: Linear$(192 \to 64)$ + ReLU + Linear$(64 \to 7)$. This naive concatenation, while computationally efficient, does not allow spatial and temporal information to interact during the recurrent computation --- a limitation compared to T-GCN's integrated spatial-temporal propagation.
+
+\subsubsection{Forecasting Evaluation Metrics}
+
+For each model and sensor channel $f$, the following metrics are computed on the held-out test split (20\% per machine):
+\begin{align}
+    \text{MSE}_f &= \frac{1}{n}\sum_{k=1}^{n}(\hat{y}_{k,f} - y_{k,f})^2
+    \label{eq:mse} \\[4pt]
+    \text{RMSE}_f &= \sqrt{\text{MSE}_f}
+    \label{eq:rmse} \\[4pt]
+    \text{MAE}_f &= \frac{1}{n}\sum_{k=1}^{n}|\hat{y}_{k,f} - y_{k,f}|
+    \label{eq:mae} \\[4pt]
+    R^2_f &= 1 - \frac{\sum_{k=1}^{n}(\hat{y}_{k,f} - y_{k,f})^2}{\sum_{k=1}^{n}(y_{k,f} - \bar{y}_f)^2}
+    \label{eq:r2}
+\end{align}
+where $n$ is the number of test samples and $\bar{y}_f$ is the test-set mean. The average R$^2$ across all $F$ channels is $\overline{R^2} = \frac{1}{F}\sum_{f=1}^{F} R^2_f$. An R$^2$ of 1.0 indicates perfect prediction; R$^2 = 0$ means the model performs no better than predicting the mean; negative R$^2$ indicates predictions worse than the mean predictor.
+
+
+\section{Supervised Classification and Regression}
 
 The second experimental component evaluates machine health classification and regression across five supervised learning algorithms: XGBoost, LightGBM, CatBoost, HistGradientBoosting, and TabNet. Five classification targets and one regression target were evaluated as defined in the dataset schema. The Results are organized by target variable in the tables below.
 
-\subsubsection{Classification Results}
+\subsection{Classification Results}
 
 \paragraph{Machine Status Classification.} The machine status classification task involves predicting the three-class machine operating state (Running, Warning, Stopped) from the sensor feature set. Results are presented in Table~\ref{tab:cls_machine_status}.
 
@@ -285,7 +392,7 @@ TabNet               & 0.8654 & 0.8602 & 0.8542 & 0.8407 & 0.9298 & 0.7040 \\
 \end{tabular}
 \end{table}
 
-\subsubsection{Regression Results: Predicted Remaining Useful Life}
+\subsection{Regression Results: Predicted Remaining Useful Life}
 
 The regression task involves predicting the continuous Remaining Useful Life (RUL) value in hours from the sensor feature set. This is the most challenging task in the supervised learning experiment owing to the near-uniform RUL distribution and the complex, multi-factor RUL dynamics across different failure modes. Results are presented in Table~\ref{tab:reg_rul}.
 
@@ -308,7 +415,7 @@ TabNet               & 117.94 & 141.30 & 0.1166 & 0.1167 \\
 
 The uniformly low R\textsuperscript{2} values (0.12--0.19) across all five models for the RUL regression task reflect the fundamental difficulty of predicting a near-uniformly distributed continuous variable from sensor snapshots without access to the machine's degradation trajectory history. The best-performing CatBoost model achieves R\textsuperscript{2} = 0.1892, MAE = 112.59 hours, and RMSE = 134.82 hours. The modest separation between the best (CatBoost, R\textsuperscript{2} = 0.1892) and worst (TabNet, R\textsuperscript{2} = 0.1166) models indicates that the ceiling for single-snapshot RUL prediction using classical boosting methods has been reached, and that the temporal deep learning architectures (T-GCN, CNN-BiLSTM) implemented in the QASAMAP deep learning layer are better suited to this task by virtue of their ability to model the sequential degradation trajectory rather than instantaneous sensor state.
 
-\subsubsection{Best Model Summary}
+\subsection{Best Model Summary}
 
 The best-performing model for each target, along with the key performance metric, is summarized in Table~\ref{tab:best_models}.
 
@@ -329,337 +436,6 @@ predicted\_remaining\_life & CatBoost & MAE / R\textsuperscript{2} & 112.59 / 0.
 \hline
 \end{tabular}
 \end{table}
-
-\subsection{Agentic AI Experiment (Without Quantum)}
-
-The third experimental component evaluates the multi-agent pipeline without quantum-inspired heuristic enhancement. The pipeline processes 11 sensor events across 7 machines (M-1, M-2, M-3, M-4, M-32, M-40, M-47), orchestrated by the \texttt{glm-5.1:cloud} model via the Ollama Cloud API. The LLM benchmark (\S\ref{sec:llm_benchmark}) additionally evaluates \texttt{qwen3.5:397b-cloud} and \texttt{deepseek-v4-pro:cloud}.
-
-In this configuration, all nine LLM agents (Monitoring, Diagnosis, Planning, Reporting, Correlation, Explainability, Self-Reflection, Scheduling, and Pattern Learning) base their decisions exclusively on classical risk scores computed by the \texttt{ReasoningEngine}, which applies static sensor thresholds and a composite risk formula derived from the training split (even machine IDs). \textbf{Post-audit safeguard:} No ground-truth fields (\texttt{status}, \texttt{failure\_type}) are passed to any LLM agent prompt; the LLM reasons only from sensor values and derived bounds. Table~\ref{tab:agentic_decisions_nonquantum} shows the per-machine decisions and risk assessments produced by the non-quantum agentic pipeline.
-
-\begin{table}[htbp]
-\centering
-\caption{Per-Machine Decisions: Agentic AI Only (No Quantum)}
-\label{tab:agentic_decisions_nonquantum}
-\begin{tabular}{lccll}
-\hline
-\textbf{Machine} & \textbf{Events} & \textbf{Classical Risk} & \textbf{Action} & \textbf{Priority} \\
-\hline
-M-1  & 1 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-M-2  & 1 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-M-3  & 1 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-M-4  & 1 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-M-32 & 1 & 0.300 (MEDIUM) & monitor & P4 (bearing wear, 48h) \\
-M-40 & 5 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-M-47 & 1 & 0.000 (LOW)    & monitor & auto-LOW-skip \\
-\hline
-\end{tabular}
-\end{table}
-
-The non-quantum agentic pipeline correctly identifies Machine~32 as warranting attention (classical risk 0.30, MEDIUM, with vibration and humidity WARN flags), escalating it through the full nine-agent reasoning chain, which diagnoses bearing wear and recommends enhanced monitoring with a 48-hour surveillance window. However, the six machines with classical LOW risk (0.0) are all routed to passive monitoring via the \texttt{auto-LOW-skip} rule, and the pipeline generates only a single active decision out of 11 events (machine coverage 14.3\%). The feedback loop records only one feedback event, which is insufficient to trigger retraining (minimum threshold: 5 samples), limiting the learning loop's adaptability in this scenario.
-
-\subsection{Agentic AI Experiment (With Quantum-Inspired Classical Heuristic Enhancement)}
-
-The fourth experimental component evaluates the full QASAMAP pipeline with quantum-inspired classical heuristic enhancement. The same 11 events across 7 machines are processed and augmented by three heuristic layers: Pauli-Z multi-sensor encoding (implemented as \texttt{energy\_distance\_anomaly\_score}), QUBO-formulated priority ranking (implemented as \texttt{random\_constrained\_search}), and QAOA-formulated maintenance slot scheduling (implemented as \texttt{graph\_message\_passing\_score}). \textbf{Critical disclosure:} All three components are classical heuristics that mirror the mathematical structure of their quantum counterparts; they are \textbf{not} executed on quantum hardware. The mathematical formulation is detailed in \S\ref{sec:quantum_integration}.
-
-The heuristic layer numerical results for the 7-machine demonstration are summarized in Table~\ref{tab:heuristic_layer}. The per-sensor Pauli-Z expectations and composite $\langle Z \rangle_c$ are computed via the classical cosine-encoding formula (Equation~\ref{eq:composite_z}), not by executing the 5-qubit circuit shown in Figure~\ref{fig:pauliz_circuit} on a quantum processor.
-
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/pauliz-circuit-diagram.png}
-    \caption{Pauli-Z Multi-Sensor Risk Encoding Circuit for one machine: 5 qubits ($q_0$--$q_4$) correspond to temperature, vibration, humidity, pressure, and energy sensors with weights 0.30, 0.30, 0.15, 0.15, and 0.10 respectively. Gate sequence: Hadamard (H, blue) creates superposition; $R_Z(\theta=\pi\cdot\mathrm{norm})$ (orange) encodes normalised sensor value as rotation angle; CNOT (green) entangles adjacent sensor qubits to capture inter-sensor correlations; measurement (purple) collapses the state. Per-sensor Pauli-Z expectation $\langle Z_i \rangle = \cos(\pi\cdot\mathrm{norm}_i)$ maps the safe zone to $+1$, the warning zone to $0$, and the danger zone to $-1$. The composite weighted expectation $\langle Z \rangle_c$ (Equation~\ref{eq:composite_z}) determines the quantum risk label for each machine. \textbf{Disclosure:} This circuit is a mathematical abstraction; the actual implementation is a classical heuristic.}
-    \label{fig:pauliz_circuit}
-\end{figure}
-
-\begin{table}[htbp]
-\centering
-\caption{Heuristic Layer Assessment for All 7 Machines (Classical Implementation)}
-\label{tab:heuristic_layer}
-\begin{tabular}{lccclcc}
-\hline
-\textbf{Machine} & \textbf{$\langle Z \rangle_c$} & \textbf{Q-Risk Score} & \textbf{QUBO Rank} & \textbf{Q-Label} & \textbf{Slot} \\
-\hline
-M-32 & $-$0.0287 & 0.5144 & \#1 & QUANTUM-WARN   & B (Planned) \\
-M-1  & $-$0.0014 & 0.5007 & \#2 & QUANTUM-WARN   & A (Urgent) \\
-M-2  & $+$0.0978 & 0.4511 & \#3 & QUANTUM-WARN   & A (Urgent) \\
-M-40 & $+$0.1059 & 0.4470 & \#4 & QUANTUM-WARN   & B (Planned) \\
-M-4  & $+$0.2863 & 0.3568 & \#5 & QUANTUM-WARN   & A (Urgent) \\
-M-3  & $+$0.2920 & 0.3540 & \#6 & QUANTUM-WARN   & A (Urgent) \\
-M-47 & $+$0.3608 & 0.3196 & \#7 & QUANTUM-MARGINAL & B (Planned) \\
-\hline
-\multicolumn{5}{l}{\textit{QUBO selected (most urgent): M-32 | QUBO energy: $-$0.5144}} \\
-\multicolumn{5}{l}{\textit{Heuristic overrides triggered: 5 out of 7 machines}} \\
-\hline
-\end{tabular}
-\end{table}
-
-The QUBO local search with minimum energy $-0.5144$ selects Machine~32 as the highest-priority machine. The greedy graph-message-passing scheduler assigns Machines 1, 2, 3, and 4 to Slot~A (IMMEDIATE/URGENT) and Machines 32, 40, and 47 to Slot~B (PLANNED/ROUTINE), with heuristic overrides escalating the decisions for Machines 1, 2, 3, 4, and 32 beyond what the classical risk layer would produce.
-
-\subsubsection{Per-Machine Decision Comparison}
-
-Table~\ref{tab:per_machine_comparison} presents the per-machine decision outcomes across all three pipeline configurations, directly demonstrating the value of the heuristic override mechanism. In the heuristic-augmented pipeline, six of the seven machines receive active maintenance actions, compared to one in the non-augmented agentic pipeline and zero in the traditional rule-based system.
-
-\begin{table}[htbp]
-\centering
-\caption{Per-Machine Decision Comparison Across All Three Approaches}
-\label{tab:per_machine_comparison}
-\begin{tabular}{lcccl}
-\hline
-\textbf{Machine} & \textbf{Traditional} & \textbf{Agentic Only} & \textbf{Agentic + Heuristic} & \textbf{Override?} \\
-\hline
-M-1  & no\_action & monitor & inspect (P1)              & Yes (QUANTUM-WARN) \\
-M-2  & no\_action & monitor & inspect (P2)              & Yes (QUANTUM-WARN) \\
-M-3  & no\_action & monitor & inspect (P2)              & Yes (QUANTUM-WARN) \\
-M-4  & no\_action & monitor & inspect (P2)              & Yes (QUANTUM-WARN) \\
-M-32 & no\_action & monitor & inspect (P1)              & Yes (QUANTUM-WARN) \\
-M-40 & no\_action & monitor & schedule\_maintenance (P3) & Yes (QUANTUM-WARN) \\
-M-47 & no\_action & monitor & monitor                   & No \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{Post-Audit Comparative Performance Evaluation}
-
-The central result of the QASAMAP experimental evaluation is a rigorous post-audit comparative analysis conducted after the removal of ground-truth label leakage and the correction of quantum mislabeling. Two evaluation scopes are reported: a held-out test split (25 odd-ID machines, never used for bound derivation) and a full-dataset comparison (50 machines, pre-audit). All metrics are derived from the codebase outputs stored in \texttt{comparison\_results.json} and \texttt{full\_comparison\_results.json} (2026-05).
-
-\subsubsection{Held-Out Test Split (25 Machines)}
-
-Table~\ref{tab:post_audit_test} presents the post-audit detection performance on the held-out test split. The Rule-Based and AgenticAI approaches both achieve F1=0.00 because their conservative static thresholds fail to generalise to the subtle anomaly patterns in the test set. The Fleet-Relative detector (machine-centred median deviation) achieves F1=0.30, and the Sliding-Window detector (temporal context) achieves F1=0.48, establishing stronger baselines for future work.
-
-\begin{table}[htbp]
-\centering
-\caption{Post-Audit Comparative Detection Performance (25 Held-Out Test Machines)}
-\label{tab:post_audit_test}
-\begin{tabular}{lcccccccc}
-\hline
-\textbf{Approach} & \textbf{TP} & \textbf{FP} & \textbf{FN} & \textbf{TN} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Accuracy} \\
-\hline
-Rule-Based   & 0 & 4  & 10 & 11 & 0.00 & 0.00 & 0.00 & 0.44 \\
-Agentic AI   & 0 & 4  & 10 & 11 & 0.00 & 0.00 & 0.00 & 0.44 \\
-Fleet-Relative & 3 & 7  & 7  & 8  & 0.30 & 0.30 & 0.30 & 0.44 \\
-Sliding-Window & 5 & 6  & 5  & 9  & 0.45 & 0.50 & 0.48 & 0.56 \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{Full-Dataset Eight-Model Comparison}
-
-Table~\ref{tab:full_comparison} reports the full 50-machine comparison including all neural baselines. The neural models (Transformer, LSTM, GNN, RL-QLearn, FedLearn, TransferL) achieve F1 scores of 0.73--0.76 but produce \textbf{zero true negatives} (TN=0 or TN=1), indicating systematic over-prediction in which nearly every machine is classified as anomalous. By contrast, the AgenticAI pipeline achieves perfect precision (1.00) but very low recall (0.20), yielding F1=0.33 and correctly identifying 20 true negatives while missing 24 failures.
-
-\begin{table}[htbp]
-\centering
-\caption{Full Eight-Model Comparison (50 Machines, Pre-Audit / Full-Dataset Run)}
-\label{tab:full_comparison}
-\begin{tabular}{lcccccccc}
-\hline
-\textbf{Model} & \textbf{TP} & \textbf{FP} & \textbf{FN} & \textbf{TN} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Accuracy} \\
-\hline
-RuleBased  & 0  & 0  & 30 & 20 & 0.00 & 0.00 & 0.00 & 0.40 \\
-Transformer& 29 & 20 & 1  & 0  & 0.59 & 0.97 & 0.73 & 0.58 \\
-LSTM       & 30 & 20 & 0  & 0  & 0.60 & 1.00 & 0.75 & 0.60 \\
-GNN        & 30 & 20 & 0  & 0  & 0.60 & 1.00 & 0.75 & 0.60 \\
-RL-QLearn  & 30 & 20 & 0  & 0  & 0.60 & 1.00 & 0.75 & 0.60 \\
-FedLearn   & 30 & 20 & 0  & 0  & 0.60 & 1.00 & 0.75 & 0.60 \\
-TransferL  & 30 & 19 & 0  & 1  & 0.61 & 1.00 & 0.76 & 0.62 \\
-AgenticAI  & 6  & 0  & 24 & 20 & 1.00 & 0.20 & 0.33 & 0.52 \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{Execution Time and Latency}
-
-Table~\ref{tab:execution_time} quantifies the computational cost of each approach. Neural baselines complete prediction in milliseconds, whereas the AgenticAI pipeline requires 5,771.8~seconds ($\approx$1.6~hours) for a single prediction cycle due to nine sequential LLM API calls per machine event. This latency is a critical deployment consideration discussed in Chapter~\ref{chap:analysis}.
-
-\begin{table}[htbp]
-\centering
-\caption{Execution Time Comparison (Seconds)}
-\label{tab:execution_time}
-\begin{tabular}{lccc}
-\hline
-\textbf{Model} & \textbf{Train (s)} & \textbf{Predict (s)} & \textbf{Total (s)} \\
-\hline
-RuleBased  & 0.000 & 0.000 & 0.000 \\
-Transformer& 0.125 & 0.016 & 0.141 \\
-LSTM       & 0.438 & 0.016 & 0.454 \\
-GNN        & 0.250 & 0.016 & 0.266 \\
-RL-QLearn  & 0.063 & 0.000 & 0.063 \\
-FedLearn   & 0.030 & 0.000 & 0.030 \\
-TransferL  & 0.058 & 0.000 & 0.058 \\
-AgenticAI  & 0.000 & 5771.824 & 5771.824 \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{LLM Benchmark}
-\label{sec:llm_benchmark}
-
-Table~\ref{tab:llm_benchmark} summarises the LLM benchmark (270 calls: 3 models $\times$ 6 agents $\times$ 5 machines $\times$ 3 runs). Qwen3.5 achieves the highest JSON parse rate (82.2\%), schema compliance (82.2\%), and reasoning quality (84.8\%), but at the highest latency (70.8~s average, 248.7~s p95). DeepSeek-V4 offers the fastest average latency (20.8~s) and best quality-per-dollar (23.2). The Reporting Agent consistently fails JSON parsing (0\% JSON rate across all models), emitting free-text instead of structured output and limiting downstream automation.
-
-\begin{table}[htbp]
-\centering
-\caption{LLM Benchmark --- Overall Model Comparison}
-\label{tab:llm_benchmark}
-\begin{tabular}{lccc}
-\hline
-\textbf{Metric} & \textbf{GLM-5.1} & \textbf{Qwen3.5} & \textbf{DeepSeek-V4} \\
-\hline
-JSON parse rate (\%)   & 66.7 & 82.2 & 75.6 \\
-Schema compliance (\%) & 66.7 & 82.2 & 75.6 \\
-Reasoning quality (\%) & 71.7 & 84.8 & 73.1 \\
-Latency avg (sec)      & 27.74 & 70.82 & 20.77 \\
-Latency p95 (sec)      & 81.57 & 248.72 & 76.39 \\
-Temporal consistency (\%) & 50.6 & 66.3 & 62.2 \\
-Est.\ cost (benchmark) & \$0.0252 & \$0.0378 & \$0.0315 \\
-Quality per dollar     & 28.4 & 22.4 & 23.2 \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsubsection{Classical Heuristic Disclosure}
-
-Table~\ref{tab:heuristic_disclosure} provides the post-audit algorithmic disclosure for the three components previously marketed under quantum labels. All are implemented as pure-Python classical heuristics in \texttt{classical\_optimization.py}.
-
-\begin{table}[htbp]
-\centering
-\caption{Classical Heuristic Disclosure (Enhanced Pipeline)}
-\label{tab:heuristic_disclosure}
-\begin{tabular}{lll}
-\hline
-\textbf{Component} & \textbf{Algorithm} & \textbf{Disclosure} \\
-\hline
-Anomaly Detection & \texttt{energy\_distance\_anomaly\_score} & Normalized L2 distance from training-set median. NOT a quantum algorithm. \\
-Graph Correlation & \texttt{graph\_message\_passing\_score} & Weighted neighbor averaging on existing T-GCN adjacency. NOT a quantum algorithm. \\
-Scheduling & \texttt{random\_constrained\_search} & Greedy seed + random 1-bit-flip local search. NOT a quantum algorithm. \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{System Capability Matrix}
-
-Table~\ref{tab:capability_matrix} summarizes the feature and capability set available to each of the three evaluated approaches, illustrating the progressive enrichment of system capabilities from the traditional rule-based system to the full QASAMAP stack.
-
-\begin{table}[htbp]
-\centering
-\caption{System Capability Matrix Across Three Approaches}
-\label{tab:capability_matrix}
-\begin{tabular}{lccc}
-\hline
-\textbf{Capability} & \textbf{Traditional} & \textbf{Agentic Only} & \textbf{Agentic + Heuristic} \\
-\hline
-LLM Agent Reasoning               & No  & Yes & Yes \\
-Contextual Memory (Sliding Window)& No  & Yes & Yes \\
-Learning Loop / Retraining        & No  & Yes & Yes \\
-Multi-Sensor Cross-Reasoning      & No  & Yes & Yes \\
-Kafka Data Ingestion (Ready)      & No  & Yes & Yes \\
-QUBO-Formulated Priority Search   & No  & No  & Yes \\
-QAOA-Formulated Graph Scheduling  & No  & No  & Yes \\
-Pauli-Z Risk Encoding (Classical) & No  & No  & Yes \\
-Heuristic Override (FN Guard)     & No  & No  & Yes \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{Mathematical Formulations of Forecasting Models}
-
-\subsubsection{Cross-Correlation Lag Graph Construction}
-
-The T-GCN spatial backbone is a directed weighted graph $G = (V, E, W)$ constructed from pairwise lagged cross-correlations of the temperature time series. For each ordered machine pair $(m_i, m_j)$, the cross-correlation function at integer lag $\tau$ is:
-\begin{equation}
-    \rho_{ij}(\tau) = \frac{\sum_{t=1}^{T-|\tau|} \bigl(T_i(t) - \bar{T}_i\bigr)\bigl(T_j(t+\tau) - \bar{T}_j\bigr)}
-    {\sqrt{\sum_{t}(T_i(t)-\bar{T}_i)^2}\sqrt{\sum_{t}(T_j(t)-\bar{T}_j)^2}}
-    \label{eq:xcorr}
-\end{equation}
-where $T_i(t)$ is the temperature reading of machine $i$ at timestep $t$, $\bar{T}_i$ is its time-series mean, and $\tau \in \{-10, -9, \ldots, +10\}$. The lag of maximum absolute correlation and its strength are recorded as:
-\begin{equation}
-    \tau^*_{ij} = \arg\max_{\tau} |\rho_{ij}(\tau)|, \qquad
-    s_{ij} = |\rho_{ij}(\tau^*_{ij})|
-    \label{eq:best_lag}
-\end{equation}
-A directed edge $e_{ij}$ with weight $s_{ij}$ is added to $G$ if and only if $s_{ij} > 0.35$. The resulting adjacency matrix $A \in \mathbb{R}^{N \times N}$ (where $N = 50$) is then symmetrically normalised as:
-\begin{equation}
-    \hat{A} = D^{-1/2} A D^{-1/2}
-    \label{eq:norm_adj}
-\end{equation}
-where $D_{ii} = \sum_j A_{ij}$ is the degree matrix. This normalisation ensures that the spectral radius of $\hat{A}$ is bounded by 1, preventing gradient explosion during graph convolution. The construction yields 538 directed edges, with Machine~40 having the highest out-degree centrality $d^+_{40} = \sum_j A_{40j}$.
-
-\subsubsection{Graph Convolutional Network Layer}
-
-Each Graph Convolutional (GCN) layer propagates information across the machine graph by computing a weighted aggregation of neighbouring node features. For layer $\ell$ at timestep $t$, the forward pass is:
-\begin{equation}
-    H^{(\ell+1)}_t = \sigma\!\left(\hat{A}\, H^{(\ell)}_t\, W^{(\ell)}\right)
-    \label{eq:gcn}
-\end{equation}
-where $H^{(\ell)}_t \in \mathbb{R}^{N \times d_\ell}$ is the node feature matrix at layer $\ell$ (with $d_0 = 7$ input features), $W^{(\ell)} \in \mathbb{R}^{d_\ell \times d_{\ell+1}}$ is the learnable weight matrix ($d_1 = d_2 = 64$), and $\sigma(\cdot)$ denotes the ReLU activation. Dropout with $p = 0.2$ is applied after each GCN layer. The two-layer GCN produces spatial embeddings $H^{(2)}_t \in \mathbb{R}^{N \times 64}$ capturing cross-machine correlations at each timestep.
-
-The spectral motivation for Equation~\ref{eq:gcn} follows from the graph Fourier transform: the normalised adjacency $\hat{A}$ is a first-order approximation of the graph Laplacian filter $\tilde{L} = I - \hat{A}$, and applying $\hat{A}$ to node features is equivalent to low-pass filtering on the graph spectral domain, smoothing feature values across strongly correlated machine neighbours.
-
-\subsubsection{Gated Recurrent Unit (GRU) Temporal Layer}
-
-The GRU layer processes the sequence of GCN-encoded spatial embeddings $\{H^{(2)}_1, H^{(2)}_2, \ldots, H^{(2)}_W\}$ (window length $W = 10$) to model temporal evolution. For each machine node independently, the GRU update equations at timestep $t$ are:
-\begin{align}
-    z_t &= \sigma_g\!\left(W_z x_t + U_z h_{t-1} + b_z\right)  \label{eq:gru_update} \\
-    r_t &= \sigma_g\!\left(W_r x_t + U_r h_{t-1} + b_r\right)  \label{eq:gru_reset} \\
-    \tilde{h}_t &= \tanh\!\left(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h\right)  \label{eq:gru_candidate} \\
-    h_t &= (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t  \label{eq:gru_hidden}
-\end{align}
-where $x_t \in \mathbb{R}^{64}$ is the GCN embedding at time $t$, $h_{t-1} \in \mathbb{R}^{128}$ is the previous hidden state, $z_t$ is the update gate controlling how much of the previous state is retained, $r_t$ is the reset gate controlling how much past information is forgotten, $\tilde{h}_t$ is the candidate hidden state, and $\odot$ denotes elementwise multiplication. $\sigma_g(\cdot)$ is the sigmoid function. Two stacked GRU layers with hidden size 128 are used, with Dropout 0.2 applied between layers.
-
-The update gate $z_t$ implements an adaptive interpolation between the previous hidden state $h_{t-1}$ (long-term temporal memory) and the candidate $\tilde{h}_t$ (new information), which is critical for industrial sensor modelling where degradation occurs over multiple time scales simultaneously.
-
-\subsubsection{T-GCN Training Objective and Backpropagation}
-
-The T-GCN is trained to minimise the mean squared error between predicted and actual next-step differenced sensor values over all machines and sensor channels:
-\begin{equation}
-    \mathcal{L}_{\text{MSE}} = \frac{1}{N \cdot F \cdot |\mathcal{B}|} \sum_{b \in \mathcal{B}} \sum_{i=1}^{N} \sum_{f=1}^{F}
-    \left(\hat{y}^{(b)}_{i,f} - y^{(b)}_{i,f}\right)^2
-    \label{eq:tgcn_loss}
-\end{equation}
-where $N = 50$ is the number of machines, $F = 7$ is the number of sensor channels (including engineered features), $\mathcal{B}$ is the mini-batch, $\hat{y}^{(b)}_{i,f}$ is the model prediction, and $y^{(b)}_{i,f}$ is the ground-truth value. The loss is backpropagated through time (BPTT) across the GRU unrolling and through the GCN graph structure using the normalised adjacency gradient:
-\begin{equation}
-    \frac{\partial \mathcal{L}}{\partial W^{(\ell)}} = \sum_{t=1}^{W} \left(H^{(\ell)}_t\right)^T \hat{A}^T \frac{\partial \mathcal{L}}{\partial H^{(\ell+1)}_t}
-    \label{eq:gcn_grad}
-\end{equation}
-Optimisation uses Adam with learning rate $\eta = 5 \times 10^{-4}$, weight decay $\lambda = 10^{-5}$, and cosine annealing schedule $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$. Gradient clipping at $\|\nabla\|_2 \leq 1.0$ prevents instability during BPTT. The two engineered input features are defined as:
-\begin{equation}
-    x_{\text{temp\_vibe}} = T_i \times V_i, \qquad
-    x_{\text{press\_energy}} = \frac{E_i}{P_i + 0.1}
-    \label{eq:eng_feat}
-\end{equation}
-where $T_i$, $V_i$, $E_i$, $P_i$ are temperature, vibration, energy, and pressure for machine $i$ respectively.
-
-\subsubsection{LSTM Baseline Formulation}
-
-The OptimizedLSTM baseline processes each machine's sensor sequence independently without graph structure. The LSTM cell equations at timestep $t$ are:
-\begin{align}
-    f_t &= \sigma_g(W_f [h_{t-1}, x_t] + b_f)  \label{eq:lstm_forget} \\
-    i_t &= \sigma_g(W_i [h_{t-1}, x_t] + b_i)  \label{eq:lstm_input} \\
-    o_t &= \sigma_g(W_o [h_{t-1}, x_t] + b_o)  \label{eq:lstm_output} \\
-    \tilde{c}_t &= \tanh(W_c [h_{t-1}, x_t] + b_c)  \label{eq:lstm_candidate} \\
-    c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t  \label{eq:lstm_cell} \\
-    h_t &= o_t \odot \tanh(c_t)  \label{eq:lstm_hidden}
-\end{align}
-where $f_t$, $i_t$, $o_t$ are the forget, input, and output gates respectively, $c_t$ is the cell state carrying long-range temporal information, and $\tilde{c}_t$ is the candidate cell update. The distinction between $c_t$ (additive cell state) and $h_t$ (gated output) enables LSTMs to model long-range dependencies more effectively than vanilla RNNs by allowing gradients to flow through the additive cell state path with minimal attenuation.
-
-The Hybrid LSTM-GCN concatenates the GCN spatial embedding $H^{(2)}_t \in \mathbb{R}^{N \times 64}$ with the LSTM hidden state $h_t \in \mathbb{R}^{N \times 128}$ before the output head:
-\begin{equation}
-    z_{\text{hybrid},t} = [H^{(2)}_t \,\|\, h_t] \in \mathbb{R}^{N \times 192}
-    \label{eq:hybrid}
-\end{equation}
-where $[\cdot \| \cdot]$ denotes feature-dimension concatenation. The output head maps this to predictions: Linear$(192 \to 64)$ + ReLU + Linear$(64 \to 7)$. This naive concatenation, while computationally efficient, does not allow spatial and temporal information to interact during the recurrent computation — a limitation compared to T-GCN's integrated spatial-temporal propagation.
-
-\subsubsection{Forecasting Evaluation Metrics}
-
-For each model and sensor channel $f$, the following metrics are computed on the held-out test split (20\% per machine):
-\begin{align}
-    \text{MSE}_f &= \frac{1}{n}\sum_{k=1}^{n}(\hat{y}_{k,f} - y_{k,f})^2
-    \label{eq:mse} \\[4pt]
-    \text{RMSE}_f &= \sqrt{\text{MSE}_f}
-    \label{eq:rmse} \\[4pt]
-    \text{MAE}_f &= \frac{1}{n}\sum_{k=1}^{n}|\hat{y}_{k,f} - y_{k,f}|
-    \label{eq:mae} \\[4pt]
-    R^2_f &= 1 - \frac{\sum_{k=1}^{n}(\hat{y}_{k,f} - y_{k,f})^2}{\sum_{k=1}^{n}(y_{k,f} - \bar{y}_f)^2}
-    \label{eq:r2}
-\end{align}
-where $n$ is the number of test samples and $\bar{y}_f$ is the test-set mean. The average R$^2$ across all $F$ channels is $\overline{R^2} = \frac{1}{F}\sum_{f=1}^{F} R^2_f$. An R$^2$ of 1.0 indicates perfect prediction; R$^2 = 0$ means the model performs no better than predicting the mean; negative R$^2$ indicates predictions worse than the mean predictor.
 
 \subsection{Mathematical Formulations of Classification and Regression Models}
 
@@ -794,140 +570,38 @@ The Remaining Useful Life regression task evaluates predictions $\hat{r}_i$ agai
 \end{align}
 The difference between $R^2$ and Explained Variance is that $R^2$ is sensitive to mean prediction bias: if $\hat{r}_i = r_i + c$ for a constant $c \neq 0$, then $R^2 < \text{EV}$. Since tree-based models may exhibit systematic bias in RUL prediction (particularly near the boundaries of the RUL range), reporting both metrics provides a more complete characterisation of prediction quality. The near-uniform RUL distribution (mean 234.27 h, std 150.06 h) implies $\text{Var}(r) = 150.06^2 \approx 22{,}518$ h$^2$, so the low $R^2 = 0.189$ for the best model (CatBoost) corresponds to a residual variance of $0.811 \times 22{,}518 \approx 18{,}262$ h$^2$, i.e., a residual standard deviation of approximately 135 hours --- insufficient for operationally precise maintenance planning based on single-snapshot features alone.
 
-\subsection{Mathematical Formulations of Quantum Computing Models}
 
-\subsubsection{Qubit State Representation and Bloch Sphere}
+\section{Discussion of Experimental Results}
 
-A single qubit state is a unit vector in $\mathbb{C}^2$:
-\begin{equation}
-    |\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \quad |\alpha|^2 + |\beta|^2 = 1
-    \label{eq:qubit}
-\end{equation}
-In the Bloch sphere parameterisation, $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$, where $\theta \in [0,\pi]$ is the polar angle and $\phi \in [0, 2\pi)$ is the azimuthal angle. The Pauli-Z operator and its expectation for this state are:
-\begin{equation}
-    Z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}, \qquad
-    \langle Z \rangle = \langle\psi|Z|\psi\rangle = |\alpha|^2 - |\beta|^2 = \cos\theta
-    \label{eq:pauli_z_exp}
-\end{equation}
-This shows that $\langle Z \rangle = +1$ when $\theta = 0$ (qubit in $|0\rangle$, safe zone) and $\langle Z \rangle = -1$ when $\theta = \pi$ (qubit in $|1\rangle$, danger zone).
+\subsection{Spatiotemporal Forecasting: T-GCN vs.\ LSTM Baselines}
 
-\subsubsection{Hadamard and $R_Z$ Gate Derivation}
+The T-GCN with cross-correlation adjacency achieves the best average R\textsuperscript{2} of 0.7702 across five sensor channels, outperforming both the OptimizedLSTM (R\textsuperscript{2} = 0.6853, $\Delta = +12.4\%$) and the Hybrid LSTM-GCN (R\textsuperscript{2} = 0.7134, $\Delta = +8.0\%$). This result confirms the core hypothesis underlying the T-GCN design: that modeling the spatial dependencies between machines through a cross-correlation lag graph provides information that temporal-only recurrent architectures cannot recover from the time series alone.
 
-The Hadamard gate creates an equal superposition from the computational basis states:
-\begin{equation}
-    H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}, \qquad
-    H|0\rangle = \frac{1}{\sqrt{2}}(|0\rangle + |1\rangle), \quad
-    H|1\rangle = \frac{1}{\sqrt{2}}(|0\rangle - |1\rangle)
-    \label{eq:hadamard}
-\end{equation}
-After $H$ is applied to $|0\rangle$, the qubit is in the $|+\rangle$ state on the equator of the Bloch sphere ($\theta = \pi/2$, $\langle Z \rangle = 0$). The $R_Z(\theta)$ rotation gate rotates the qubit around the $Z$-axis of the Bloch sphere:
-\begin{equation}
-    R_Z(\theta) = e^{-i\theta Z/2} = \begin{pmatrix} e^{-i\theta/2} & 0 \\ 0 & e^{i\theta/2} \end{pmatrix}
-    \label{eq:rz_gate}
-\end{equation}
-Applying $R_Z(\pi \cdot \text{norm})$ to $H|0\rangle = \frac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$ gives:
-\begin{equation}
-    R_Z(\pi \cdot \text{norm}) \cdot H|0\rangle = \frac{1}{\sqrt{2}}\begin{pmatrix} e^{-i\pi\,\text{norm}/2} \\ e^{+i\pi\,\text{norm}/2} \end{pmatrix}
-    \label{eq:rz_applied}
-\end{equation}
-The Pauli-Z expectation of this state is:
-\begin{equation}
-    \langle Z_i \rangle = \left\langle R_Z(\pi\,\text{norm}_i) H |0\rangle \,\Big|\, Z \,\Big|\, R_Z(\pi\,\text{norm}_i) H |0\rangle \right\rangle = \cos(\pi \cdot \text{norm}_i)
-    \label{eq:z_expectation_derivation}
-\end{equation}
-This derivation confirms the analytical result used in the \texttt{PauliZRiskEncoder}: the $\langle Z \rangle$ value is entirely determined by the normalised sensor value and the $R_Z$ rotation angle, without requiring measurement shots for the expectation calculation. The CNOT entanglement gates act after the $R_Z$ layer and do not alter the marginal $\langle Z_i \rangle$ values (since CNOT preserves the Z-basis marginals), but they introduce off-diagonal correlations in the joint density matrix $\rho = |\psi\rangle\langle\psi|$ that represent multi-sensor coupling.
+The improvement is most pronounced for humidity prediction (R\textsuperscript{2}: 0.9080 vs.\ 0.8761 for LSTM, $\Delta = +3.6\%$) and energy consumption (R\textsuperscript{2}: 0.6581 vs.\ 0.5522, $\Delta = +19.2\%$). The energy channel improvement is particularly notable because energy consumption exhibits near-zero linear correlation with other sensors individually, yet benefits substantially from graph-based cross-machine information propagation. This suggests that energy patterns across machines carry latent correlated structure --- possibly reflecting shared electrical load or production scheduling dependencies --- that the cross-correlation graph successfully captures.
 
-\subsubsection{Composite Pauli-Z Expectation and Risk Classification}
+The pressure sensor channel is the most difficult to forecast across all three models (R\textsuperscript{2} range: 0.4254--0.5002). Pressure has only 401 unique values in the dataset, suggesting quantized setpoint-driven dynamics that follow discrete state transitions rather than smooth continuous degradation trajectories. These step-function dynamics are inherently harder to model with gradient-based temporal architectures trained on mean-squared error, and future work should investigate specialized architectures for semi-discrete sensor channels.
 
-The five-qubit state after the full $H$--$R_Z$--CNOT circuit is:
-\begin{equation}
-    |\Psi\rangle = \text{CNOT}_{34} \cdot \text{CNOT}_{23} \cdot \text{CNOT}_{12} \cdot \text{CNOT}_{01}
-    \cdot \bigotimes_{i=0}^{4} R_Z(\pi\,\text{norm}_i) H |0\rangle
-    \label{eq:full_circuit_state}
-\end{equation}
-The composite weighted Pauli-Z expectation is:
-\begin{equation}
-    \langle Z \rangle_c = \sum_{i=0}^{4} w_i \langle Z_i \rangle = \sum_{i=0}^{4} w_i \cos(\pi \cdot \text{norm}_i)
-    \label{eq:composite_z_full}
-\end{equation}
-with weights $\mathbf{w} = (0.30, 0.30, 0.15, 0.15, 0.10)$ summing to 1.0. The partial derivatives with respect to normalised sensor values provide sensitivity analysis:
-\begin{equation}
-    \frac{\partial \langle Z \rangle_c}{\partial \text{norm}_i} = -\pi w_i \sin(\pi \cdot \text{norm}_i)
-    \label{eq:z_sensitivity}
-\end{equation}
-This derivative is maximised in magnitude at $\text{norm}_i = 0.5$ (the marginal zone boundary), meaning the quantum risk indicator is most sensitive to sensor changes when sensors are operating near the mid-range threshold --- precisely the sub-threshold regime that classical binary indicators would classify as non-anomalous. At $\text{norm}_i = 0$ or $\text{norm}_i = 1$, the derivative is zero, reflecting the saturation of the cosine function at its extremes.
+The Hybrid LSTM-GCN achieves intermediate performance (R\textsuperscript{2} = 0.7134) with the shortest training time (47.89 seconds), offering a practical trade-off when computational resources are limited. However, its advantage over the pure LSTM is modest ($\Delta = +4.1\%$), suggesting that the naive concatenation of LSTM and GCN outputs without the structured lag-based graph topology of the T-GCN fails to fully realize the benefit of graph-based cross-machine reasoning. The T-GCN's principled construction of directed, lag-weighted edges from temporal cross-correlations is the key distinguishing design choice that delivers the superior performance.
 
-The four risk labels are defined by thresholds on $\langle Z \rangle_c$:
-\begin{equation}
-    \text{label} = \begin{cases}
-        \texttt{QUANTUM-ANOMALY}  & \langle Z \rangle_c < -0.20 \\
-        \texttt{QUANTUM-WARN}     & -0.20 \leq \langle Z \rangle_c < 0.30 \\
-        \texttt{QUANTUM-MARGINAL} & 0.30 \leq \langle Z \rangle_c < 0.60 \\
-        \texttt{QUANTUM-NORMAL}   & \langle Z \rangle_c \geq 0.60
-    \end{cases}
-    \label{eq:risk_labels}
-\end{equation}
-These thresholds correspond to the following normalised sensor profiles: \texttt{QUANTUM-ANOMALY} is triggered when the weighted average sensor normalisation exceeds approximately $\text{norm}_{\text{eff}} \approx \arccos(-0.20)/\pi \approx 0.564$, meaning that sensors are collectively operating above 56.4\% of their danger-zone boundary. \texttt{QUANTUM-NORMAL} requires $\text{norm}_{\text{eff}} \lesssim \arccos(0.60)/\pi \approx 0.295$, meaning sensors are collectively below 29.5\% of their range.
+Training time for the T-GCN (111.28 seconds) is approximately twice that of the LSTM (52.56 seconds), attributable to the graph convolution operations over 538 edges at each forward pass. In an operational setting where models are retrained periodically rather than continuously, this overhead is acceptable given the performance benefit. The \texttt{LearningLoop}'s retraining trigger, which requires a minimum of 5 feedback records before initiating retraining, provides a natural mechanism for controlling retraining frequency in proportion to the rate of observed distributional shift.
 
-\subsubsection{QUBO Energy Function and Annealing Schedule}
+\subsection{Supervised Classification and Regression}
 
-The QUBO energy function (Equation~\ref{eq:qubo}) can be written in full matrix form as:
-\begin{equation}
-    E(\mathbf{x}) = \mathbf{x}^T Q \mathbf{x} = -\sum_{i} w_i x_i + \frac{\lambda}{2}\sum_{i \neq j} x_i x_j
-    \label{eq:qubo_full}
-    \label{eq:qubo}
-\end{equation}
-where $Q_{ii} = -w_i$ (diagonal: reward selection of machine $i$ proportional to its quantum risk score) and $Q_{ij} = \lambda/2$ for $i \neq j$ (off-diagonal: penalise co-selection). With $\lambda = 1.5$, the penalty for selecting two machines simultaneously is $\Delta E_{\text{pair}} = 2 \times (\lambda/2) = 1.5$, which must be outweighed by the combined risk reward $w_i + w_j$ for the pair to be selected. This means only machines with combined quantum risk $w_i + w_j > 1.5$ would be co-selected in the minimum-energy solution.
+The supervised learning experiment reveals a clear stratification of task difficulty across the six prediction targets. The anomaly flag and downtime risk binary classification targets are near-perfectly discriminable by all tested models, with LightGBM achieving F1 = 0.9990 and AUC-ROC = 0.9999. These results warrant careful interpretation: near-perfect classification performance suggests that these labels may be deterministically derivable from other features in the dataset --- specifically, the strong correlation ($r \approx 1.0$) between anomaly flag and downtime risk implies that they are effectively the same binary signal. In a real-world deployment context, a model that near-perfectly predicts anomaly flag or downtime risk from the same sensor reading may be learning a data leakage relationship rather than a genuinely predictive one. Future work should verify the temporal independence of these labels relative to the input features.
 
-The simulated annealing schedule uses exponential cooling:
-\begin{equation}
-    T_k = T_0 \cdot \alpha^k, \quad \alpha = \exp\!\left(\frac{\ln(T_{\min}/T_0)}{K}\right)
-    \label{eq:sa_schedule}
-\end{equation}
-where $T_0 = 5.0$, $T_{\min} = 10^{-4}$, and $K = 500$ iterations. This gives $\alpha = \exp(\ln(10^{-4}/5)/500) = \exp(-0.01897) \approx 0.9812$. The Metropolis acceptance criterion for an energy-increasing move $\Delta E > 0$ is:
-\begin{equation}
-    P(\text{accept}) = \exp\!\left(-\frac{\Delta E}{T_k}\right)
-    \label{eq:metropolis}
-\end{equation}
-At the initial temperature $T_0 = 5.0$, a move with $\Delta E = 1.0$ is accepted with probability $\exp(-0.2) \approx 0.82$, encouraging broad exploration. At the final temperature $T_{\min} = 10^{-4}$, the same move is accepted with probability $\exp(-10^4) \approx 0$, enforcing convergence to a local minimum.
+Machine status classification (best F1 = 0.712, XGBoost) and maintenance required classification (best F1 = 0.872, XGBoost) present more meaningful learning challenges that are representative of real-world difficulty. The failure type five-class classification (best F1 = 0.880, XGBoost) is the most challenging classification task, reflecting the severe class imbalance between Normal operation (91.90\%) and minority failure types (1.01--3.13\%). XGBoost's consistent superiority for the most challenging classification targets (machine status, failure type, maintenance required) is consistent with the broader literature demonstrating gradient-boosted tree advantages on tabular data with class imbalance and mixed feature types.
 
-\subsubsection{QAOA Hamiltonian and Variational Optimisation}
+TabNet consistently underperforms relative to gradient-boosted ensemble methods across all targets, consistent with recent empirical comparisons that show TabNet's attention-based selection mechanism provides less benefit on tabular datasets with moderate feature counts and clear feature importances. The 50-machine dataset, with only five raw sensor channels and a modest set of engineered features, may not provide sufficient feature complexity to benefit from the sequential attention architecture that distinguishes TabNet.
 
-\begin{equation}
-    H_P = \frac{1}{2} \sum_{(i,j) \in E} (I - Z_i Z_j) - \sum_i r_i \cdot 0.3 \cdot Z_i
-    \label{eq:qaoa_hamiltonian}
-\end{equation}
+The RUL regression results (best R\textsuperscript{2} = 0.189, CatBoost) deserve particular scrutiny. An R\textsuperscript{2} of 0.189 indicates that the five sensor channels and derived features in a single-timestep snapshot explain only 18.9\% of the variance in the RUL label. This is expected: the near-uniform RUL distribution (mean 234.27 hours, standard deviation 150.06 hours) means that a reading with, say, temperature = 75\textdegree C and vibration = 50 could correspond to any RUL value between 1 and 499 hours depending on the machine's degradation history and initial condition --- information that is absent from a single-snapshot feature vector. The T-GCN forecasting architecture addresses this fundamental limitation by modeling the temporal trajectory of sensor evolution, which carries the degradation history information that static snapshots lack. This result reinforces the methodological rationale for the T-GCN component in the QASAMAP pipeline.
 
-The QAOA problem Hamiltonian (Equation~\ref{eq:qaoa_hamiltonian}) can be expanded for the $n$-machine scheduling problem. The MaxCut term for edge $(i,j)$ contributes:
-\begin{equation}
-    H_{ij}^{\text{cut}} = \frac{1}{2}(I - Z_i Z_j)
-    \label{eq:maxcut_term}
-\end{equation}
-This term equals 0 when both qubits are in the same state ($Z_i Z_j = +1$, same slot) and 1 when they are in opposite states ($Z_i Z_j = -1$, different slots), implementing the MaxCut objective of separating conflicting machines. The Pauli-Z bias term for high-risk machine $i$ is:
-\begin{equation}
-    H_i^{\text{bias}} = -r_i \cdot 0.3 \cdot Z_i
-    \label{eq:bias_term}
-\end{equation}
-Since $Z|0\rangle = +|0\rangle$ (Slot~A), the term $-r_i \cdot 0.3 \cdot Z_i$ lowers the energy when qubit $i$ is in state $|0\rangle$ (Slot~A) proportionally to risk $r_i$, biasing high-risk machines toward immediate maintenance.
+\subsection{Implications for Deployment}
 
-The QAOA ansatz with $p$ repetitions alternates between the problem unitary $U_C(\gamma) = e^{-i\gamma H_P}$ and the mixing unitary $U_B(\beta) = e^{-i\beta \sum_i X_i}$ (where $X_i$ is the Pauli-X operator on qubit $i$):
-\begin{equation}
-    |\gamma, \beta\rangle = U_B(\beta_p) U_C(\gamma_p) \cdots U_B(\beta_1) U_C(\gamma_1) |+\rangle^{\otimes n}
-    \label{eq:qaoa_state}
-\end{equation}
-starting from the equal superposition state $|+\rangle^{\otimes n} = H^{\otimes n}|0\rangle^{\otimes n}$. The variational optimisation minimises the expected energy:
-\begin{equation}
-    \{\gamma^*, \beta^*\} = \arg\min_{\gamma,\beta} \langle \gamma, \beta | H_P | \gamma, \beta \rangle
-    \label{eq:qaoa_opt}
-\end{equation}
-via COBYLA (Constrained Optimisation by Linear Approximation), a derivative-free method that constructs linear approximations to the objective using a trust region of radius $\rho = 0.5$, with maximum 150 iterations. The final maintenance slot assignment is obtained by measuring the optimal state $|\gamma^*, \beta^*\rangle$ with 1024 shots and selecting the most frequently observed bitstring: qubit $i$ in state 0 assigns machine $i$ to Slot~A (IMMEDIATE/URGENT); state 1 assigns it to Slot~B (PLANNED/ROUTINE).
+The T-GCN's superior forecasting performance over LSTM baselines, combined with the \texttt{AnchorBufferManager}'s ability to handle partial sensor instrumentation, makes it feasible to deploy T-GCN-based streaming inference in facilities where not all machines are fully instrumented. The imputation of missing sensor values from T-GCN predictions reduces the minimum sensor infrastructure required for high-quality streaming inference.
 
-\subsection{Summary of Experimental Findings}
+The near-perfect performance of tree-based ensemble models on anomaly flag and downtime risk classification, combined with the meaningful performance on failure type and maintenance required classification, suggests that a hybrid decision architecture --- using fast ensemble model inference for initial screening and routing --- could substantially reduce the LLM agent invocation rate, improving system throughput and reducing operational cost. Specifically, events classified as anomaly flag = 1 with high confidence by LightGBM could be directly escalated without requiring the full nine-agent reasoning chain.
 
-The experimental evaluation yields four primary findings. First, the T-GCN architecture with cross-correlation adjacency achieves the best spatiotemporal forecasting performance (avg.\ R\textsuperscript{2} = 0.7702), outperforming both the standalone LSTM (R\textsuperscript{2} = 0.6853) and the Hybrid LSTM-GCN (R\textsuperscript{2} = 0.7134), demonstrating the value of graph-based cross-machine dependency modeling for industrial sensor forecasting.
 
-Second, classical tree-based ensemble models (XGBoost, LightGBM, CatBoost) achieve near-perfect accuracy and F1 scores ($>$0.99) on anomaly flag and downtime risk binary classification, reflecting the high discriminability of these targets in the dataset. However, the machine status, failure type, and maintenance required classification tasks present more meaningful challenges, with best F1 scores of 0.71, 0.88, and 0.87 respectively, and the RUL regression task exposes the fundamental limitations of single-snapshot classical models (best R\textsuperscript{2} = 0.19).
+\section{Summary}
 
-Third, the agentic AI pipeline without heuristic enhancement covers only 14.3\% of the machine pool with active maintenance actions in the 7-machine demonstration, constrained by the classical risk engine's LOW-skip rule. Adding the quantum-inspired classical heuristic layer expands machine coverage to 85.7\% by detecting sub-threshold multi-sensor risk combinations that the classical layer would passively monitor. On the held-out 25-machine test split, however, the agentic pipeline achieves F1=0.00 --- identical to the Rule-Based baseline --- because its conservative static thresholds fail to generalise to subtle anomalies not present in the training split. This result underscores that the heuristic override mechanism improves coverage on demonstrative samples but does not solve the fundamental sensitivity problem on unseen data.
-
-Fourth, the complete QASAMAP stack exhibits a severe latency--capability trade-off. The agentic pipeline requires 5,771.8~seconds ($\approx$1.6~hours) per prediction cycle versus milliseconds for neural baselines, making real-time deployment impractical without significant architectural optimisation. The LLM benchmark reveals that even the best-performing model (Qwen3.5) achieves only 82.2\% JSON parse rate and 84.8\% reasoning quality, while the Reporting Agent fails structured output entirely (0\% JSON rate). The Self-Reflection Agent frequently flags internal inconsistencies (e.g., CRITICAL risk paired with P2 priority), indicating that pipeline coherence remains imperfect. The post-audit rewrite (Ver13, 2026-05) removed ground-truth label leakage and corrected quantum mislabeling; all ``quantum'' results reported in this chapter reflect classical heuristic performance, not execution on a quantum processor.
+This chapter presented the data ingestion infrastructure and spatiotemporal modeling experiments that form the predictive foundation of the QASAMAP framework. The T-GCN architecture with cross-correlation lag graph achieves the best forecasting performance (avg.\ R\textsuperscript{2} = 0.7702), outperforming both the standalone LSTM (R\textsuperscript{2} = 0.6853) and the Hybrid LSTM-GCN (R\textsuperscript{2} = 0.7134), demonstrating that graph-based cross-machine dependency modeling provides a meaningful and consistent benefit for industrial sensor stream forecasting. The supervised learning benchmark across five algorithms and six targets establishes that tree-based ensembles achieve near-perfect performance on binary classification targets (anomaly flag, downtime risk; F1 $>$ 0.998) but face genuine learning challenges on multi-class targets (failure type F1 = 0.880, maintenance required F1 = 0.872) and RUL regression (best R\textsuperscript{2} = 0.189). These results collectively motivate the multi-layer QASAMAP architecture: the T-GCN handles temporal trajectory modeling where static snapshots fail, while supervised ensembles provide fast initial screening for the agentic pipeline.
