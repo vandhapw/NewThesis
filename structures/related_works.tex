@@ -1,11 +1,6 @@
 \section{Foundations of Smart Manufacturing and Industry 4.0}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/images/research_methodology.png}
-    \caption{QASAMAP three-layer research methodology spanning data generation and predictive modelling (Layer~1), Agentic AI Framework (Layer~2), and Quantum-Inspired Classical Heuristic Engine (Layer~3). This architecture provides the structural context for the literature reviewed in this chapter.}
-    \label{fig:lit_review_overview}
-\end{figure}
+\input{figures/industry40_evolution}
 
 \subsection{Evolution of Manufacturing Paradigms}
 
@@ -21,12 +16,7 @@ The convergence of big data analytics and industrial automation has enabled a sh
 
 \section{Anomaly Detection in Manufacturing}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.85\textwidth]{figures/images/cross-correlation-strength-matrix.png}
-    \caption{Cross-correlation strength matrix for temperature time series across 20 machines, illustrating the multi-sensor correlation structures that underpin modern anomaly detection literature. Weak off-diagonal correlations confirm independent operation for most machines, while isolated negative coupling pairs reveal latent failure-propagation channels \cite{Han2022, zhang_unsupervised_2021}.}
-    \label{fig:lit_anomaly_detection}
-\end{figure}
+\input{figures/anomaly_taxonomy}
 
 \subsection{Deep Learning-Based Anomaly Detection}
 
@@ -46,12 +36,7 @@ The specific requirements of real-time anomaly detection in industrial IoT setti
 
 \section{Predictive Maintenance Approaches}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
-    \caption{Four-panel performance comparison of forecasting architectures (OptimizedLSTM, T-GCN, Hybrid LSTM-GCN) across R\textsuperscript{2}, MSE, aggregate metrics, and training loss convergence. This figure contextualises the prognostics literature reviewed in this section, illustrating the performance gap that spatiotemporal graph methods close over temporal-only baselines \cite{nizam_real-time_2022, Hochreiter1997}.}
-    \label{fig:lit_predictive_maintenance}
-\end{figure}
+\input{figures/pdm_pipeline}
 
 \subsection{Classical and Statistical Prognostics}
 
@@ -71,12 +56,7 @@ Transfer learning enables models pre-trained on publicly available datasets to b
 
 \section{Agent-Based Systems and Agentic AI in Manufacturing}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/images/agentic_ai_architecture.png}
-    \caption{Agentic AI Smart Manufacturing Architecture: the six-stage pipeline from Kafka data ingestion through ContextMemoryStore, ReasoningEngine, MultiAgentOrchestrator (nine LLM agents), Action Layer, and LearningLoop. This diagram illustrates the agentic paradigm reviewed in this section \cite{sapkota_ai_2026, AbouAli2026}.}
-    \label{fig:lit_agentic_ai}
-\end{figure}
+\input{figures/agentic_architecture_lit}
 
 \subsection{From Multi-Agent Systems to Agentic AI}
 
@@ -96,12 +76,7 @@ The application of large language models to sensor data understanding represents
 
 \section{Quantum Computing and Quantum-Inspired AI for Manufacturing}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/images/quantum_agent_architecture.png}
-    \caption{Integrated Quantum-Agentic architecture: the Heuristic Layer (Pauli-Z encoding, QUBO-formulated local search, QAOA-formulated graph scheduling) feeds heuristic context into the per-machine Agentic Decision Loop. This diagram contextualises the quantum-inspired optimization literature reviewed in this section \cite{Blekos2024, Preskill2018}.}
-    \label{fig:lit_quantum}
-\end{figure}
+\input{figures/quantum_landscape}
 
 \subsection{Quantum Optimization Foundations}
 
@@ -121,12 +96,7 @@ Hybrid quantum-classical architectures combine quantum subroutines with classica
 
 \section{Toward Quantum-Agentic Smart Manufacturing for Anomaly Detection and Predictive Maintenance}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.85\textwidth]{figures/images/pauliz-circuit-diagram.png}
-    \caption{Pauli-Z Multi-Sensor Risk Encoding Circuit: five qubits encode temperature, vibration, humidity, pressure, and energy sensors via Hadamard, $R_Z$, and CNOT gates. This circuit diagram illustrates the quantum-mathematical abstraction that underpins the heuristic layer discussed in this section \cite{Preskill2018, Blekos2024}. \textbf{Disclosure:} the current implementation is a classical heuristic preserving the quantum structure for future hardware migration.}
-    \label{fig:lit_pauliz}
-\end{figure}
+\input{figures/quantum_agentic_convergence}
 
 \subsection{Integration of Quantum and Agentic Paradigms}
 
@@ -137,6 +107,8 @@ Despite substantial independent progress in quantum computing and agentic AI, th
 The most significant limitation of existing approaches is the absence of integrated frameworks that simultaneously achieve multi-sensor anomaly detection, remaining useful life prediction, maintenance scheduling optimization, and autonomous agentic decision-making within a single closed-loop architecture. Current works address one or two of these objectives in isolation: anomaly detection literature \cite{Chalapathy2019, pang_deep_2021} treats detection as a terminal task rather than the first stage of a full predictive maintenance workflow; prognostics research \cite{nizam_real-time_2022} estimates RUL without linking predictions to actionable scheduling decisions; quantum optimization studies \cite{dalyac_qualifying_2021, Blekos2024} formulate abstract scheduling problems without grounding them in real sensor data or agentic action execution; and agentic AI works \cite{erukude_agentic_2025, dwivedi_agentic_2026} reason about decisions without integrating physics-informed quantum heuristics for combinatorial optimization. QASAMAP addresses this fragmentation by unifying spatiotemporal forecasting, multi-task supervised learning, quantum-inspired classical heuristics, and multi-agent LLM orchestration within a single architecture that autonomously adapts to evolving industrial conditions.
 
 \section{Comparative Analysis of Latest Existing Approaches}
+
+\input{figures/comparative_matrix}
 
 \subsection{Limitations of Current Methodologies}
 
