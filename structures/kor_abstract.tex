@@ -1,3 +1,11 @@
+% Korean Abstract Header
+\noindent\textbf{논문제목:} 양자 에이전트 기반 스마트 제조 이상 탐지 및 예측 유지보수\\[0.2em]
+\noindent\textbf{저자:} Vandha Pradwiyasma Widartha\\[0.2em]
+\noindent\textbf{학과:} 정보시스템학과, 부경대학교\\[0.2em]
+\noindent\textbf{학위:} 박사\\[1em]
+\hrule
+\vspace{1em}
+
 산업 4.0의 등장은 제조업을 사이버-물리 시스템으로 변모시켰으며, 예기치 않은 설비 정지는 심각한 경제적 손실을 초래한다. 그럼에도 불구하고 예지보전 연구는 여전히 단편적이다. 이상 탐지, 잔여수명 예측, 보전 일정 계획은 서로 분리된 문제로 다루어지고 있으며, 정적 모델은 센서 드리프트로 인해 성능이 저하되고, 조합적 일정 계획의 복잡성은 기계 수에 따라 지수적으로 증가한다. 본 학위논문은 이러한 문제를 단일 폐쇄루프 시스템 내에서 해결하기 위해 제안된 3계층 통합 아키텍처인 QASAMAP(Quantum-Agentic Smart Manufacturing Anomaly detection and Predictive Maintenance) 프레임워크를 제안한다.
 
 제1계층은 50대의 기계에서 69일간 수집된 100,000건의 데이터셋에 대한 시공간 예측 및 지도학습을 수행한다. 상호상관 시차 그래프(50개 노드, 538개 엣지)를 구축한 Temporal Graph Convolutional Network(T-GCN)는 5개 센서 채널 전반에 걸쳐 평균 R\textsuperscript{2} = 0.7702를 달성하여, 독립 LSTM(0.6853, +12.4\%) 및 하이브리드 LSTM-GCN(0.7134, +8.0\%) 베이스라인을 능가한다. 또한 6개 예측 대상에 대해 5개 지도학습 알고리즘의 포괄적 벤치마크를 수행하여, 이상 탐지 F1 = 0.999, 고장 유형 분류 F1 = 0.880, 보전 필요성 예측 F1 = 0.872, 잔여수명 회귀 R\textsuperscript{2} = 0.189의 기준 성능을 확립하였다.
