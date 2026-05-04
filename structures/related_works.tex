@@ -314,6 +314,57 @@ The application of large language models to sensor data understanding represents
 \label{fig:quantum_landscape}
 \end{figure}
 
+\subsection{Quantum Superposition and the Bloch Sphere}
+
+Unlike classical bits that occupy exactly one of two states ($0$ or $1$), a quantum bit (qubit) can exist in a coherent superposition of both states simultaneously. The state of a single qubit is represented by a unit vector in a two-dimensional complex Hilbert space:
+\begin{equation}
+    |\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \quad |\alpha|^2 + |\beta|^2 = 1
+    \label{eq:qubit_state}
+\end{equation}
+where $\alpha, \beta \in \mathbb{C}$ are probability amplitudes. The geometric interpretation of this state is the Bloch sphere, a unit sphere in $\mathbb{R}^3$ where every point on the surface corresponds to a unique pure qubit state.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.55\textwidth]{figures/images/bloch_sphere.svg}
+    \caption{The Bloch sphere, the canonical geometric representation of a single-qubit state $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$. The north pole represents $|0\rangle$, the south pole $|1\rangle$, and every other point on the surface a superposition of the two basis states. Image from Wikimedia Commons (CC BY-SA 3.0).}
+    \label{fig:bloch_sphere}
+\end{figure}
+
+In the Bloch sphere parameterisation shown in Figure~\ref{fig:bloch_sphere}, the state is written as $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$, where $\theta \in [0,\pi]$ is the polar angle and $\phi \in [0, 2\pi)$ is the azimuthal angle. The Pauli-$Z$ operator measures the projection onto the $z$-axis and its expectation value is $\langle Z \rangle = \cos\theta$, yielding $+1$ at the north pole ($|0\rangle$, safe zone) and $-1$ at the south pole ($|1\rangle$, danger zone). This continuous spectrum between $+1$ and $-1$ is the property that QASAMAP's Pauli-Z encoding heuristic mirrors classically: rather than a binary safe/danger indicator, the sensor risk is encoded as a continuous value capturing the degree of deviation from normality.
+
+\subsection{Quantum Entanglement and Multi-Sensor Correlation}
+
+Quantum entanglement is a uniquely quantum mechanical phenomenon in which the state of a composite system cannot be factored into a product of individual subsystem states. For a two-qubit system, the maximally entangled Bell state is:
+\begin{equation}
+    |\Phi^+\rangle = \frac{1}{\sqrt{2}}\left(|00\rangle + |11\rangle\right)
+    \label{eq:bell_state}
+\end{equation}
+Measuring the first qubit immediately collapses the second qubit to the same state, regardless of spatial separation. This non-local correlation, which Einstein, Podolsky, and Rosen famously critiqued as ``spooky action at a distance,'' has been experimentally verified through Bell inequality tests and underpins quantum communication and quantum error correction.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/images/epr_paradox.svg}
+    \caption{Illustration of the Einstein-Podolsky-Rosen (EPR) paradox: two entangled particles are prepared in a correlated state and separated; measurement of one particle instantaneously determines the state of the other, demonstrating quantum non-locality. Image from Wikimedia Commons (CC BY-SA 3.0).}
+    \label{fig:epr_paradox}
+\end{figure}
+
+In the context of industrial sensor monitoring, entanglement provides a mathematical metaphor for capturing cross-sensor correlations that classical independent-feature models miss. Just as the state of one entangled qubit is inseparable from its partner, the health of one machine sensor may be intrinsically linked to another through shared operational context. The QASAMAP Pauli-Z encoding circuit uses CNOT gates between adjacent sensor qubits to introduce entanglement-like correlations in the joint density matrix, ensuring that the composite risk indicator reflects inter-sensor dependencies rather than treating each sensor in isolation.
+
+\subsection{Variational Quantum Circuits}
+
+Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits (PQC), form the algorithmic backbone of near-term quantum machine learning in the NISQ era. A VQC consists of three layers: an encoding layer that maps classical data into quantum states, a variational layer of parameterised unitary operations, and a measurement layer that extracts classical expectations from the resulting quantum state.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/images/vqe_illustration.png}
+    \caption{High-level illustration of a Variational Quantum Algorithm (VQE). Classical input data are encoded into a parameterised quantum circuit (ansatz); the resulting state is measured to compute an expectation value (e.g., energy); a classical optimiser updates the parameters iteratively to minimise the objective. Image from Wikimedia Commons (CC0).}
+    \label{fig:vqe_illustration}
+\end{figure}
+
+The Variational Quantum Eigensolver (VQE) and the Quantum Approximate Optimisation Algorithm (QAOA) are the two most widely applied VQC paradigms. VQE iteratively minimises the expectation value of a Hamiltonian $\langle \psi(\boldsymbol{\theta}) | H | \psi(\boldsymbol{\theta}) \rangle$ using a classical optimiser such as COBYLA or SPSA to update the circuit parameters $\boldsymbol{\theta}$. QAOA, introduced by Farhi et al.~\cite{Farhi2014}, alternates between a problem Hamiltonian $U_C(\gamma) = e^{-i\gamma H_P}$ and a mixing Hamiltonian $U_B(\beta) = e^{-i\beta \sum_i X_i}$ for $p$ layers, starting from an equal superposition $|+\rangle^{\otimes n}$. The depth $p$ controls the approximation quality: as $p \to \infty$, QAOA converges to the exact ground state under mild conditions. For manufacturing scheduling, $H_P$ encodes the maintenance conflict graph and machine risk biases, while the mixer $U_B$ enables exploration of the exponentially large assignment space.
+
+Kreplin et al.~\cite{kreplin_squlearn_2025} develop the sQUlearn library for variational quantum machine learning, offering hardware-efficient ansatz designs and automatic gradient computation via the parameter-shift rule. These VQC foundations directly inform QASAMAP's quantum-inspired heuristic layer: although the current implementation executes classical approximations (random local search for QUBO, graph message passing for QAOA), the mathematical structure of the ansatz, Hamiltonian, and expectation measurement is preserved so that the same formulations can be executed on quantum hardware when fault-tolerant processors become available.
+
 \subsection{Quantum Optimization Foundations}
 
 \begin{figure}[htbp]
