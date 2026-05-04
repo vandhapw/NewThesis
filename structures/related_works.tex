@@ -319,13 +319,83 @@ Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits
     \label{fig:vqe_illustration}
 \end{figure}
 
-The Variational Quantum Eigensolver (VQE) and the Quantum Approximate Optimisation Algorithm (QAOA) are the two most widely applied VQC paradigms. VQE iteratively minimises the expectation value of a Hamiltonian $\langle \psi(\boldsymbol{\theta}) | H | \psi(\boldsymbol{\theta}) \rangle$ using a classical optimiser such as COBYLA or SPSA to update the circuit parameters $\boldsymbol{\theta}$. QAOA, introduced by Farhi et al.~\cite{Farhi2014}, alternates between a problem Hamiltonian $U_C(\gamma) = e^{-i\gamma H_P}$ and a mixing Hamiltonian $U_B(\beta) = e^{-i\beta \sum_i X_i}$ for $p$ layers, starting from an equal superposition $|+\rangle^{\otimes n}$. The depth $p$ controls the approximation quality: as $p \to \infty$, QAOA converges to the exact ground state under mild conditions. For manufacturing scheduling, $H_P$ encodes the maintenance conflict graph and machine risk biases, while the mixer $U_B$ enables exploration of the exponentially large assignment space.
+The operation of a generic VQC can be formalised in three stages. \textbf{Stage 1 --- Encoding.} A classical input vector $\mathbf{x} \in \mathbb{R}^d$ is mapped into an $n$-qubit quantum state $|\psi(\mathbf{x})\rangle$ via a data-dependent unitary $U_E(\mathbf{x})$. The most common encoding is angle encoding, where each feature $x_i$ is mapped to a single-qubit rotation angle:
+\begin{equation}
+    U_E(\mathbf{x}) = \bigotimes_{i=1}^{n} R_Z(x_i) \cdot H^{\otimes n}
+    \label{eq:angle_encoding}
+\end{equation}
+with $H$ the Hadamard gate and $R_Z(\theta) = e^{-i\theta Z/2}$ the Pauli-$Z$ rotation. This creates an entangled superposition state in which the classical information is stored in the relative phases of the computational basis amplitudes.
+
+\textbf{Stage 2 --- Variational Ansatz.} A parameterised unitary $U_V(\boldsymbol{\theta})$ is applied to the encoded state. For a hardware-efficient ansatz with $L$ layers, each layer consists of single-qubit rotations followed by two-qubit entangling gates (e.g., CNOT):
+\begin{equation}
+    U_V(\boldsymbol{\theta}) = \prod_{\ell=1}^{L} \Bigl( \bigotimes_{i=1}^{n} R_{P_i}(\theta_{i,\ell}) \Bigr) \cdot U_{\text{ent}}^{(\ell)}
+    \label{eq:variational_ansatz}
+\end{equation}
+where $R_{P_i}$ denotes a rotation around Pauli operator $P_i \in \{X,Y,Z\}$ and $U_{\text{ent}}^{(\ell)}$ is the entangling layer (typically a fixed CNOT ladder or nearest-neighbour pattern). The total number of trainable parameters is $|\boldsymbol{\theta}| = n \cdot L$, scaling linearly with qubit count and circuit depth.
+
+\textbf{Stage 3 --- Measurement and Cost.} The expectation value of an observable $O$ (often a problem Hamiltonian) is estimated by repeated measurement shots:
+\begin{equation}
+    C(\boldsymbol{\theta}; \mathbf{x}) = \langle \psi(\mathbf{x}) | U_V^{\dagger}(\boldsymbol{\theta}) \, O \, U_V(\boldsymbol{\theta}) | \psi(\mathbf{x}) \rangle
+    \label{eq:vqc_cost}
+\end{equation}
+The cost landscape is non-convex and generally contains barren plateaus at large depth $L$, where gradients vanish exponentially with $n$ \cite{Blekos2024}. A classical optimiser (e.g., COBYLA, SPSA, Adam) updates $\boldsymbol{\theta}$ to minimise $C$:
+\begin{equation}
+    \boldsymbol{\theta}^{(t+1)} = \boldsymbol{\theta}^{(t)} - \eta \, \nabla_{\boldsymbol{\theta}} C(\boldsymbol{\theta}^{(t)})
+    \label{eq:classical_update}
+\end{equation}
+
+The gradient $\nabla_{\boldsymbol{\theta}} C$ cannot be computed classically for a general quantum circuit; instead, the \emph{parameter-shift rule} provides exact gradients from two shifted circuit evaluations:
+\begin{equation}
+    \frac{\partial C}{\partial \theta_k} = \frac{1}{2}\Bigl[ C\bigl(\boldsymbol{\theta} + \tfrac{\pi}{2}\mathbf{e}_k\bigr) - C\bigl(\boldsymbol{\theta} - \tfrac{\pi}{2}\mathbf{e}_k\bigr) \Bigr]
+    \label{eq:parameter_shift}
+\end{equation}
+where $\mathbf{e}_k$ is the unit vector along parameter $k$. This rule requires exactly two additional quantum circuit executions per parameter, making gradient-based training feasible on NISQ hardware.
+
+The Variational Quantum Eigensolver (VQE) and the Quantum Approximate Optimisation Algorithm (QAOA) are the two most widely applied VQC paradigms. VQE iteratively minimises the expectation value of a Hamiltonian $\langle \psi(\boldsymbol{\theta}) | H | \psi(\boldsymbol{\theta}) \rangle$ using a classical optimiser to update $\boldsymbol{\theta}$. QAOA, introduced by Farhi et al.~\cite{Farhi2014}, alternates between a problem Hamiltonian $U_C(\gamma) = e^{-i\gamma H_P}$ and a mixing Hamiltonian $U_B(\beta) = e^{-i\beta \sum_i X_i}$ for $p$ layers, starting from an equal superposition $|+\rangle^{\otimes n}$. The depth $p$ controls the approximation quality: as $p \to \infty$, QAOA converges to the exact ground state under mild conditions. For manufacturing scheduling, $H_P$ encodes the maintenance conflict graph and machine risk biases, while the mixer $U_B$ enables exploration of the exponentially large assignment space.
 
 Kreplin et al.~\cite{kreplin_squlearn_2025} develop the sQUlearn library for variational quantum machine learning, offering hardware-efficient ansatz designs and automatic gradient computation via the parameter-shift rule. These VQC foundations directly inform QASAMAP's quantum-inspired heuristic layer: although the current implementation executes classical approximations (random local search for QUBO, graph message passing for QAOA), the mathematical structure of the ansatz, Hamiltonian, and expectation measurement is preserved so that the same formulations can be executed on quantum hardware when fault-tolerant processors become available.
 
 \subsection{Quantum Optimization Foundations}
 
-Quantum computing represents not merely an incremental improvement over classical computation but a fundamentally new computational paradigm requiring algorithmic design from first principles \cite{eldh_quantum_2025}. Preskill \cite{Preskill2018} introduced the NISQ (Noisy Intermediate-Scale Quantum) era concept, characterising current quantum processors with 50--1,000 qubits and finite gate fidelities. Blekos et al. \cite{Blekos2024} systematically analyse the complexity classes for which quantum optimization advantages are theoretically supported, identifying the barren plateau problem as the primary training challenge for variational quantum algorithms and reviewing mitigation strategies including layerwise training and warm-starting from classical solutions. These theoretical foundations inform the design of QASAMAP's quantum-inspired heuristics, which preserve the mathematical structure of quantum formulations while executing on classical hardware.
+Quantum computing represents not merely an incremental improvement over classical computation but a fundamentally new computational paradigm requiring algorithmic design from first principles \cite{eldh_quantum_2025}. Preskill \cite{Preskill2018} introduced the NISQ (Noisy Intermediate-Scale Quantum) era concept, characterising current quantum processors with 50--1,000 qubits and finite gate fidelities. Blekos et al. \cite{Blekos2024} systematically analyse the complexity classes for which quantum optimization advantages are theoretically supported, identifying the barren plateau problem as the primary training challenge for variational quantum algorithms and reviewing mitigation strategies including layerwise training and warm-starting from classical solutions.
+
+\textbf{Hamiltonian formulation.} In quantum mechanics, a Hamiltonian $H$ is a Hermitian operator that represents the total energy of a system. Its eigenvalues correspond to the allowed energy levels, and its eigenvectors (eigenstates) describe the stable configurations of the system. For an $n$-qubit system, $H$ is expressed as a sum of Pauli tensor products:
+\begin{equation}
+    H = \sum_{k} h_k \, P_{k,1} \otimes P_{k,2} \otimes \cdots \otimes P_{k,n}, \qquad P_{k,i} \in \{I, X, Y, Z\}
+    \label{eq:hamiltonian_pauli}
+\end{equation}
+where $h_k \in \mathbb{R}$ are coefficients and $P_{k,i}$ are Pauli operators acting on qubit $i$. The ground state $|\psi_0\rangle$ is the eigenvector with the smallest eigenvalue $E_0$:
+\begin{equation}
+    H |\psi_0\rangle = E_0 |\psi_0\rangle, \qquad E_0 = \min_{|\psi\rangle} \langle \psi | H | \psi \rangle
+    \label{eq:ground_state}
+\end{equation}
+In combinatorial optimization, the problem is encoded into $H$ such that the ground state corresponds to the optimal solution. For example, a binary variable $x_i \in \{0,1\}$ is mapped to the Pauli-$Z$ operator $Z_i$ via the substitution:
+\begin{equation}
+    x_i \;\longleftrightarrow\; \frac{1}{2}(I - Z_i)
+    \label{eq:z_substitution}
+\end{equation}
+since $Z_i$ has eigenvalues $+1$ for $|0\rangle$ and $-1$ for $|1\rangle$, so $\frac{1}{2}(I-Z_i)$ yields eigenvalue $0$ for $|0\rangle$ and $1$ for $|1\rangle$.
+
+\textbf{QUBO and Ising mapping.} A Quadratic Unconstrained Binary Optimization (QUBO) problem seeks a binary vector $\mathbf{x} \in \{0,1\}^n$ that minimises a quadratic objective:
+\begin{equation}
+    E_{\text{QUBO}}(\mathbf{x}) = \sum_{i=1}^{n} Q_{ii} x_i + \sum_{i < j} Q_{ij} x_i x_j = \mathbf{x}^T Q \, \mathbf{x}
+    \label{eq:qubo}
+\end{equation}
+where $Q \in \mathbb{R}^{n \times n}$ is a symmetric matrix encoding linear (diagonal) and quadratic (off-diagonal) coefficients. The QUBO formulation is completely general: any NP-hard combinatorial problem---including MaxCut, graph colouring, travelling salesman, and scheduling---can be polynomially reduced to QUBO \cite{dalyac_qualifying_2021}.
+
+The QUBO objective maps directly to an Ising Hamiltonian through the change of variables $s_i = 2x_i - 1 \in \{-1,+1\}$:
+\begin{equation}
+    H_{\text{Ising}} = \sum_{i} J_{ii} s_i + \sum_{i < j} J_{ij} s_i s_j + \text{const.}, \qquad J_{ij} = \frac{Q_{ij}}{4}
+    \label{eq:ising}
+\end{equation}
+Quantum annealing hardware (e.g., D-Wave) physically implements $H_{\text{Ising}}$ by encoding $s_i$ as the $z$-component of a superconducting qubit and adjusting the coupler strengths $J_{ij}$ between qubits. The system evolves under a time-dependent Hamiltonian:
+\begin{equation}
+    H(t) = A(t) \sum_i \sigma_i^x + B(t) \left( \sum_i J_{ii} \sigma_i^z + \sum_{i < j} J_{ij} \sigma_i^z \sigma_j^z \right)
+    \label{eq:annealing_hamiltonian}
+\end{equation}
+where $A(t)$ starts large and decreases to zero, while $B(t)$ starts at zero and increases. The system begins in the ground state of the transverse-field term $\sum_i \sigma_i^x$ (a uniform superposition) and adiabatically transitions to the ground state of the Ising term, which encodes the optimal QUBO solution \cite{Preskill2018}.
+
+These theoretical foundations inform the design of QASAMAP's quantum-inspired heuristics, which preserve the Hamiltonian and QUBO mathematical structures while executing on classical hardware.
 
 \subsection{Quantum Annealing and QUBO Formulations}
 
