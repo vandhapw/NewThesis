@@ -596,6 +596,7 @@ TabNet consistently underperforms relative to gradient-boosted ensemble methods 
 The RUL regression results (best R\textsuperscript{2} = 0.189, CatBoost) deserve particular scrutiny. An R\textsuperscript{2} of 0.189 indicates that the five sensor channels and derived features in a single-timestep snapshot explain only 18.9\% of the variance in the RUL label. This is expected: the near-uniform RUL distribution (mean 234.27 hours, standard deviation 150.06 hours) means that a reading with, say, temperature = 75\textdegree C and vibration = 50 could correspond to any RUL value between 1 and 499 hours depending on the machine's degradation history and initial condition --- information that is absent from a single-snapshot feature vector. The T-GCN forecasting architecture addresses this fundamental limitation by modeling the temporal trajectory of sensor evolution, which carries the degradation history information that static snapshots lack. This result reinforces the methodological rationale for the T-GCN component in the QASAMAP pipeline.
 
 \subsection{Implications for Deployment}
+\label{sec:deployment_implications}
 
 The T-GCN's superior forecasting performance over LSTM baselines, combined with the \texttt{AnchorBufferManager}'s ability to handle partial sensor instrumentation, makes it feasible to deploy T-GCN-based streaming inference in facilities where not all machines are fully instrumented. The imputation of missing sensor values from T-GCN predictions reduces the minimum sensor infrastructure required for high-quality streaming inference.
 

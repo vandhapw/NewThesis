@@ -200,7 +200,7 @@ The latency comparison exposes a fundamental trade-off. The AgenticAI pipeline r
 
 \subsection{Implications for Industrial Deployment}
 
-The experimental results collectively support practical implications for industrial deployment of the multi-agent layer. The near-perfect performance of tree-based ensemble models on anomaly flag and downtime risk classification, combined with the meaningful performance on failure type and maintenance required classification, suggests that a hybrid decision architecture --- using fast ensemble model inference for initial screening and routing --- could substantially reduce the LLM agent invocation rate, improving system throughput and reducing operational cost. Specifically, events classified as anomaly flag = 1 with high confidence by LightGBM could be directly escalated without requiring the full nine-agent reasoning chain.
+As discussed in Chapter~\ref{chap:tgcn}, Section~\ref{sec:deployment_implications}, the near-perfect performance of tree-based ensemble models on binary classification targets suggests that a hybrid decision architecture --- using fast ensemble inference for initial screening --- could substantially reduce the LLM agent invocation rate and improve system throughput.
 
 The latency of 5,771.8~seconds per prediction cycle is a critical deployment blocker for real-time applications. Future work should investigate parallel agent invocation, caching of LLM responses, and lightweight local model deployment to reduce the per-event decision latency from hours to minutes.
 
