@@ -31,12 +31,14 @@ The multi-agent orchestrator coordinates nine specialized agents through a four-
 \centering
 \caption{Agent taxonomy showing phase assignment, responsibilities, and LLM model routing.}
 \label{tab:agent-taxonomy}
-\renewcommand{\arraystretch}{1.2}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{
->{\centering\arraybackslash}m{1.2cm}
->{\raggedright\arraybackslash}m{3.2cm}
+>{\centering\arraybackslash}m{0.8cm}
+>{\raggedright\arraybackslash}m{2.8cm}
 >{\raggedright\arraybackslash}X
->{\centering\arraybackslash}m{2.2cm}
+>{\centering\arraybackslash}m{1.9cm}
 }
 \toprule
 \textbf{Phase} & \textbf{Agent} & \textbf{Responsibility} & \textbf{LLM Model} \\
@@ -152,27 +154,30 @@ worker threads operate concurrently. The choice of W=10 represents a design trad
 Each sensor reading is modeled as a 6-dimensional vector $x_t$ = [T, H, V, P, E, L] representing temperature, humidity, vibration, pressure, energy, and load at time t. The constraint space C defines operational envelopes for each dimension:
 \begin{table}[!htbp]
 \centering
-\caption{Sensor constraint space defining operational envelopes for anomaly classification}
+\caption{Sensor constraint space defining operational envelopes for anomaly classification.}
 \label{tab:sensor-model-constraint}
-\renewcommand{\arraystretch}{1.2}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}m{3cm}
->{\centering\arraybackslash}m{2cm}
->{\centering\arraybackslash}m{2cm}
->{\centering\arraybackslash}m{2.2cm}
->{\centering\arraybackslash}m{2.2cm}
+>{\raggedright\arraybackslash}m{2.6cm}
+>{\centering\arraybackslash}m{1.6cm}
+>{\centering\arraybackslash}m{1.6cm}
+>{\centering\arraybackslash}m{1.8cm}
+>{\centering\arraybackslash}m{1.8cm}
 >{\raggedright\arraybackslash}X
 }
 \toprule
-\textbf{Sensor} & \textbf{Min} & \textbf{Max} & \textbf{Critical} & \textbf{Reference} & \textbf{Max Trend} \\
+\textbf{Sensor} & \textbf{Min} & \textbf{Max} & \textbf{Critical} & \textbf{Reference} & \textbf{Max trend} \\
 \midrule
 Temperature & $20^\circ$C & $85^\circ$C & $95^\circ$C & $50^\circ$C & $5^\circ$C / interval \\
-Vibration   & $0$ mm/s    & $10$ mm/s   & $15$ mm/s   & $2$ mm/s    & $3$ mm/s / interval \\
-Pressure    & $1.0$ bar   & $8.0$ bar   & $10.0$ bar  & $4.5$ bar   & $1.5$ bar / interval \\
-Energy      & $0$ kWh     & $500$ kWh   & $600$ kWh   & $200$ kWh   & $50$ kWh / interval \\
+Vibration   & $0$~mm/s    & $10$~mm/s   & $15$~mm/s   & $2$~mm/s    & $3$~mm/s / interval \\
+Pressure    & $1.0$~bar   & $8.0$~bar   & $10.0$~bar  & $4.5$~bar   & $1.5$~bar / interval \\
+Energy      & $0$~kWh     & $500$~kWh   & $600$~kWh   & $200$~kWh   & $50$~kWh / interval \\
 \bottomrule
 \end{tabularx}
 \end{table}
+\FloatBarrier
 
 
 The constraints engine evaluates each reading against this space to produce a machine state vector s = [$is_operating$, $risk_state$, $health_index$, $damage_index$, $anomaly_score$, violations]. This state vector is the primary input to the priority computation algorithm used by Phase 2. The maintenance priority score P for each machine is computed as a weighted linear combination of state indicators:
@@ -195,30 +200,98 @@ Priority levels are assigned categorically: CRITICAL (P >= 100), HIGH (P >= 60),
 To demonstrate the effectiveness of the proposed multi-agent architecture, we present a systematic comparison against a monolithic (non-agent) baseline. The monolithic system processes the same sensor data using a single LLM call with a combined prompt that encompasses all reasoning tasks (monitoring, diagnosis, planning, and scheduling) in one invocation. Both systems were evaluated on identical input data comprising 500 sensor windows from 50 machines over 10 hours of simulated operation. The evaluation metrics include: decision quality (measured by scheduling cost optimality gap against MILP), processing throughput (windows processed per minute), fault detection rate (F1 score for known anomaly patterns), and explanation quality (assessed by domain experts on a 1-5 Likert scale). The monolithic baseline uses a single DeepSeek-v4-Pro call with a comprehensive prompt containing all constraints, while the multiagent system distributes reasoning across nine specialized agents with dedicated prompts.
 \begin{table}[!htbp]
 \centering
-\caption{Comparative Evaluation of Multi-Agent vs.\ Monolithic Architecture}
+\caption{Comparative Evaluation of Multi-Agent vs.\ Monolithic Architecture.}
 \label{tab:multi_vs_mono}
-\renewcommand{\arraystretch}{1.2}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}m{4cm}
+>{\raggedright\arraybackslash}m{3.5cm}
 >{\raggedright\arraybackslash}X
 >{\raggedright\arraybackslash}X
 }
 \toprule
-\textbf{Metric} & \textbf{Multi-Agent System} & \textbf{Monolithic Baseline} \\
+\textbf{Metric} & \textbf{Multi-agent system} & \textbf{Monolithic baseline} \\
 \midrule
-Scheduling Optimality Gap & 0--3\% (6 solvers) & 15--40\% (single heuristic) \\
-Processing Throughput & 12 windows/min (parallel) & 4 windows/min (sequential) \\
-Anomaly Detection F1 & 0.89 (specialized agents) & 0.72 (single prompt) \\
-Explanation Quality (1--5) & 4.3 (dedicated Explain agent) & 2.8 (appended to output) \\
-Constraint Satisfaction & 100\% (formal engine) & 82\% (LLM-only) \\
-Fault Tolerance & Graceful degradation & Complete failure \\
-Modularity / Extensibility & Add agent without rewrite & Requires full prompt redesign \\
-Token Consumption / Call & $\sim$18K tokens (distributed) & $\sim$12K tokens (one large call) \\
+Scheduling optimality gap   & 0--3\% (6 solvers)               & 15--40\% (single heuristic) \\
+Processing throughput       & 12 windows/min (parallel)        & 4 windows/min (sequential) \\
+Anomaly detection F1        & 0.89 (specialised agents)        & 0.72 (single prompt) \\
+Explanation quality (1--5)  & 4.3 (dedicated Explain agent)    & 2.8 (appended to output) \\
+Constraint satisfaction     & 100\% (formal engine)            & 82\% (LLM-only) \\
+Fault tolerance             & Graceful degradation             & Complete failure \\
+Modularity / extensibility  & Add agent without rewrite        & Requires full prompt redesign \\
+Token consumption / call    & $\sim$18K tokens (distributed)   & $\sim$12K tokens (one large call) \\
 \bottomrule
 \end{tabularx}
 \end{table}
+\FloatBarrier
 The multi-agent architecture demonstrates superior performance across all quality metrics despite higher token consumption. The most significant advantages are:
 \textbf{Constraint Satisfaction}: The 100\% constraint satisfaction rate of the multi-agent system is guaranteed by the formal constraints engine that validates all scheduling decisions before output. The monolithic system achieves only 82\% because LLMs are known to inconsistently enforce hard constraints \cite{liu} (Liu et al., 2023), particularly capacity limits that require global counting across all machines.
 \textbf{Throughput: }The 3x throughput improvement (12 vs. 4 windows/min) results from intra-phase parallelism. In Phase 1, three agents execute concurrently; in Phases 3 and 4, two agents each execute in parallel. The monolithic system processes sequentially since all reasoning is in a single LLM call that cannot be parallelized.
 \textbf{Fault Tolerance:} When an individual agent fails (e.g., LLM timeout), the orchestrator captures the error and proceeds with available results. The pipeline produces degraded but usable output (e.g., scheduling without correlation analysis). The monolithic system experiences complete failure on any LLM error, requiring full retry.
 
+\section{End-to-End Streaming Validation on 50 Machines}
+To verify that the orchestrator scales to a realistic fleet size and to characterise the handover from the cognitive layer to the scheduling layer, the full streaming pipeline was executed on $N=50$ simulated machines, each fed 60 sensor readings split into 5 analysis windows of 10 readings. The constraints engine, priority computation, and routing to the scheduling solver are exactly those described in Sections~5.3 and~5.4; no agent-side parameter was retuned for this experiment.
+
+\subsection{Streaming Outcome Summary}
+Table~\ref{tab:stream50_summary} summarises the cognitive-layer output. After processing 5 windows per machine, the constraints engine flagged 45 of 50 machines as requiring maintenance, all of them at the CRITICAL priority level; the remaining 5 machines were classified LOW and excluded from the scheduling request. The average priority score across the 45 forwarded machines is 144.4, the average health index is 0.479, and the average damage index is 0.438, reflecting the cumulative effect of repeated constraint violations across the 50-reading horizon.
+
+\begin{table}[!htbp]
+\centering
+\caption{Cognitive-layer output of the multi-agent pipeline on 50 streamed machines (5 analysis windows $\times$ 10 readings per window). All values are produced by the constraints engine; no parameters were retuned for this fleet size.}
+\label{tab:stream50_summary}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{5.0cm}
+>{\centering\arraybackslash}m{2.0cm}
+>{\raggedright\arraybackslash}X
+}
+\toprule
+\textbf{Streaming summary statistic} & \textbf{Value} & \textbf{Interpretation} \\
+\midrule
+Total machines streamed              & 50    & full simulated fleet \\
+Machines flagged \texttt{needs\_maintenance} & 45 & forwarded to scheduling layer \\
+Machines at CRITICAL priority        & 45    & all forwarded machines \\
+Machines at HIGH / MEDIUM priority   & 0 / 0 & priority distribution collapses to extremes \\
+Machines at LOW priority             & 5     & filtered out before scheduling \\
+Average priority score (forwarded)   & 144.4 & well above synthetic average ($\sim$60) \\
+Average health index                 & 0.479 & moderate cumulative degradation \\
+Average damage index                 & 0.438 & moderate cumulative damage accumulation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\FloatBarrier
+
+\subsection{Cognitive-Layer to Scheduling-Layer Handover}
+The 45 forwarded machines define a QUBO instance with $T=19$ time slots (slot size $\approx 3$ hours over the 72-hour horizon) and $n_{\text{bits}} = N_{\text{maint}} \cdot T = 855$ binary decision variables. This is a substantially larger instance than the synthetic benchmarks of Chapter~6 (which top out at $n=390$ for $N=30$). Table~\ref{tab:stream50_solvers} reports the solver outcomes when this instance is handed to the same MILP, QIEA, and SQA solvers used in Chapter~6.
+
+\begin{table}[!htbp]
+\centering
+\caption{Solver outcomes on the 50-machine streaming instance ($N_{\text{maint}}=45$, $T=19$, $n_{\text{bits}}=855$). Numerics from \texttt{streaming\_50machines\_results.json}.}
+\label{tab:stream50_solvers}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{2.0cm}
+>{\centering\arraybackslash}m{2.0cm}
+>{\centering\arraybackslash}m{1.8cm}
+>{\centering\arraybackslash}m{2.5cm}
+>{\raggedright\arraybackslash}X
+}
+\toprule
+\textbf{Solver} & \textbf{Pure cost} & \textbf{Feasible} & \textbf{Wall time} & \textbf{Notes} \\
+\midrule
+MILP / CBC & $21{,}455.6$ & Yes (45/45) & 36.9~ms     & exact optimum, all forwarded machines scheduled \\
+QIEA       & $7{,}958.7$  & No          & 12{,}447.7~ms & lower nominal cost masks one-hot violations \\
+SQA        & ---          & ---         & timeout      & no result returned within solver budget \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\FloatBarrier
+
+The result of this handover is informative for the overall framework: at 50 machines, MILP returns the exact optimal schedule in $\sim$37~ms, comfortably inside the 60-s Kafka cycle budget established in Chapter~4. QIEA terminates in $\sim$12~s with a numerically lower cost ($7{,}958.7$ versus $21{,}455.6$) but the lower cost is itself the symptom of infeasibility: the solver's search has lapsed into a region of the $\{0,1\}^{855}$ space in which the one-hot assignment penalty no longer dominates, so a nominal QUBO energy can be reached without committing every machine to exactly one time slot. SQA does not return a result within its solver budget at this scale. We therefore route the scheduling layer to MILP/CBC by default for $N \geq 30$, while retaining QIEA and SQA for the smaller-fleet regime characterised in Chapter~6.
+
+This single end-to-end run also serves as an integration test of the multi-agent system: the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) are all exercised in series for 50 machines without manual intervention, establishing that the system as a whole closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
