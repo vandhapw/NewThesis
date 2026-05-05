@@ -182,73 +182,61 @@ G &= \max\!\left(200,\; \min\!\left(400,\; n_{\text{bits}}\right)\right).
 This prevents both under-exploration for large problems and wasteful computation for small ones.
 
 \begin{algorithm}[!htbp]
-\small
+\footnotesize
+\setlength{\baselineskip}{9pt}
 \caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
 \label{alg:qiea}
 \begin{algorithmic}[1]
-\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, number of variables $n = N \cdot T$, number of machines $N$, number of time slots $T$
+
+\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, $n = N \cdot T$
 \Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
+
 \Statex \textbf{// Adaptive parameter scaling}
-\State $K \gets \max\!\left(20,\; \min\!\left(50,\; \left\lfloor \frac{n}{4} \right\rfloor \right)\right)$
-\State $G \gets \max\!\left(200,\; \min\!\left(400,\; n \right)\right)$
+\State $K \gets \max(20, \min(50, \lfloor n/4 \rfloor))$
+\State $G \gets \max(200, \min(400, n))$
+
 \Statex \textbf{// Initialise quantum population}
 \For{$k = 0$ to $K-1$}
     \For{$i = 0$ to $n-1$}
-        \State $\alpha_{k,i} \gets \frac{1}{\sqrt{2}}$
-        \State $\beta_{k,i} \gets \frac{1}{\sqrt{2}}$
+        \State $\alpha_{k,i}, \beta_{k,i} \gets \frac{1}{\sqrt{2}}$
     \EndFor
 \EndFor
+
 \State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
-\Statex
+
 \For{$g = 0$ to $G-1$}
-    \Statex \textbf{// Step 1: Observation}
-    \For{$k = 0$ to $K-1$}
-        \For{$i = 0$ to $n-1$}
-            \State $r \sim \mathcal{U}(0,1)$
-            \State $x_{k,i} \gets 
-            \begin{cases}
-            1, & r < \beta_{k,i}^2 \\
-            0, & \text{otherwise}
-            \end{cases}$
-        \EndFor
+
+\Statex \textbf{// Observation}
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \State $x_{k,i} \gets (\mathcal{U}(0,1) < \beta_{k,i}^2)$
     \EndFor
-    \Statex \textbf{// Step 2: Evaluation}
-    \For{$k = 0$ to $K-1$}
-        \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
-        \If{$E_k < E^*$}
-            \State $E^* \gets E_k$
-            \State $\mathbf{x}^* \gets \mathbf{x}_k$
+\EndFor
+
+\Statex \textbf{// Evaluation}
+\For{$k = 0$ to $K-1$}
+    \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
+    \If{$E_k < E^*$}
+        \State $E^* \gets E_k$, \quad $\mathbf{x}^* \gets \mathbf{x}_k$
+    \EndIf
+\EndFor
+
+\Statex \textbf{// Update}
+\State $\Delta \theta \gets 0.01\pi \cdot \max(0.1, 1 - g/G)$
+
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \If{$x_{k,i} \neq x^*_i$}
+            \State $\delta \gets \pm \Delta \theta$
+            \State update $(\alpha_{k,i}, \beta_{k,i})$ via rotation
         \EndIf
     \EndFor
-    \Statex \textbf{// Step 3: Update (Q-gate rotation)}
-    \State $\Delta \theta \gets 0.01\pi \cdot \max\!\left(0.1,\; 1 - \frac{g}{G}\right)$
-    \For{$k = 0$ to $K-1$}
-        \For{$i = 0$ to $n-1$}
-            \If{$x_{k,i} = x^*_i$}
-                \State \textbf{continue}
-            \EndIf
-            \If{$x^*_i = 1$}
-                \State $\text{sign} \gets 
-                \begin{cases}
-                +1, & \alpha_{k,i} \beta_{k,i} > 0 \\
-                -1, & \text{otherwise}
-                \end{cases}$
-            \Else
-                \State $\text{sign} \gets 
-                \begin{cases}
-                -1, & \alpha_{k,i} \beta_{k,i} > 0 \\
-                +1, & \text{otherwise}
-                \end{cases}$
-            \EndIf
-            \State $\delta \gets \text{sign} \cdot \Delta \theta$
-            \State $\alpha'_{k,i} \gets \cos(\delta)\,\alpha_{k,i} - \sin(\delta)\,\beta_{k,i}$
-            \State $\beta'_{k,i} \gets \sin(\delta)\,\alpha_{k,i} + \cos(\delta)\,\beta_{k,i}$
-            \State $\alpha_{k,i} \gets \alpha'_{k,i}$
-            \State $\beta_{k,i} \gets \beta'_{k,i}$
-        \EndFor
-    \EndFor
 \EndFor
+
+\EndFor
+
 \State \Return $\mathbf{x}^*, E^*$
+
 \end{algorithmic}
 \end{algorithm}
 
@@ -286,133 +274,128 @@ The key distinction between SQA and classical simulated annealing lies in the in
 The Quantum Approximate Optimization Algorithm \cite{Farhi2014} constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al.\ \cite{Hadfield2019}, we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
 
 \begin{algorithm}[!htbp]
-\small
+\footnotesize
+\setlength{\baselineskip}{9pt}
 \caption{QAOA with XY Mixer for Scheduling}
 \label{alg:qaoa_xy}
 \begin{algorithmic}[1]
-\Require local fields $\mathbf{h}$, couplings $\mathbf{J}$, machines $N$, time slots $T$, layers $p$, restarts $R$, max iterations $I$
-\Ensure best feasible solution $\mathbf{x}^*$ and cost $C^*$
-\State $n \gets N \cdot T$
-\State $\text{dim} \gets 2^n$
-\Statex \textbf{// Precompute Ising Hamiltonian diagonal}
+
+\Require $\mathbf{h}, \mathbf{J}, N, T, p, R, I$
+\Ensure $\mathbf{x}^*, C^*$
+
+\State $n \gets N \cdot T$, \quad $\text{dim} \gets 2^n$
+
+\Statex \textbf{// Precompute Hamiltonian}
 \For{$z = 0$ to $\text{dim}-1$}
-    \State $\boldsymbol{\sigma} \gets \text{spin\_vector}(z, n)$
-    \State $H_{\text{diag}}[z] \gets \sum_i h_i \sigma_i + \sum_{i<j} J_{i,j} \sigma_i \sigma_j$
+    \State $\boldsymbol{\sigma} \gets \text{spin\_vector}(z)$
+    \State $H[z] \gets \sum_i h_i \sigma_i + \sum_{i<j} J_{i,j} \sigma_i \sigma_j$
 \EndFor
-\Statex \textbf{// Initial state: one-hot per machine}
-\State $\lvert \psi_{\text{init}} \rangle \gets \bigotimes_{m=1}^{N} \lvert 10\ldots 0 \rangle$
-\State $\gamma^* \gets \emptyset$, \quad $\boldsymbol{\beta}^* \gets \emptyset$, \quad $C^* \gets +\infty$
-\Statex
+
+\Statex \textbf{// Initial state}
+\State $\lvert \psi \rangle \gets \bigotimes_{m=1}^{N} \lvert 10\ldots 0 \rangle$
+\State $C^* \gets +\infty$
+
 \For{$r = 0$ to $R-1$}
-    \State $(\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0) \gets \text{random initial angles in } \mathbb{R}^p \times \mathbb{R}^p$
-    \Statex \textbf{// Define cost function}
-    \Function{QAOA\_Cost}{$\boldsymbol{\gamma}, \boldsymbol{\beta}$}
-        \State $\lvert \psi \rangle \gets \lvert \psi_{\text{init}} \rangle$
-        \For{$\ell = 0$ to $p-1$}
-            \State $\lvert \psi \rangle \gets e^{-i \gamma_\ell H_{\text{diag}}} \lvert \psi \rangle$
-            \For{$m = 0$ to $N-1$}
-                \For{$t = 0$ to $T-1$}
-                    \State $q_a \gets m \cdot T + t$
-                    \State $q_b \gets m \cdot T + (t+1) \bmod T$
-                    \State Apply XY($\beta_\ell$) on $(q_a, q_b)$:
-                    \Statex \hspace{2em}
-                    $\lvert 01 \rangle \rightarrow \cos(\beta_\ell)\lvert 01 \rangle - i\sin(\beta_\ell)\lvert 10 \rangle$
-                    \Statex \hspace{2em}
-                    $\lvert 10 \rangle \rightarrow -i\sin(\beta_\ell)\lvert 01 \rangle + \cos(\beta_\ell)\lvert 10 \rangle$
-                \EndFor
+
+\State $(\boldsymbol{\gamma}, \boldsymbol{\beta}) \gets \text{random}$
+
+\Statex \textbf{// Cost evaluation}
+\Function{Cost}{$\boldsymbol{\gamma}, \boldsymbol{\beta}$}
+    \State $\lvert \psi \rangle \gets \lvert \psi_{\text{init}} \rangle$
+    \For{$\ell = 0$ to $p-1$}
+        \State apply $e^{-i \gamma_\ell H}$
+
+        \For{$m = 0$ to $N-1$}
+            \For{$t = 0$ to $T-1$}
+                \State apply XY mixer on $(mT+t,\; mT+(t+1)\bmod T)$
             \EndFor
         \EndFor
-        \State \Return $\sum_z |\langle z | \psi \rangle|^2 \cdot H_{\text{diag}}[z]$
-    \EndFunction
-    \State $(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) \gets \text{COBYLA}(\text{QAOA\_Cost}, (\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0), I)$
-    \If{$\text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) < C^*$}
-        \State $C^* \gets \text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}})$
-        \State $\boldsymbol{\gamma}^* \gets \boldsymbol{\gamma}_{\text{opt}}$
-        \State $\boldsymbol{\beta}^* \gets \boldsymbol{\beta}_{\text{opt}}$
-    \EndIf
-\EndFor
-\Statex \textbf{// Sampling best solution}
-\State $\lvert \psi_{\text{final}} \rangle \gets \text{QAOA}(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*)$
-\State $p(z) \gets |\langle z | \psi_{\text{final}} \rangle|^2$
-\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
-\For{top $200$ states $z$ sorted by $p(z)$}
-    \State $\mathbf{x} \gets \text{binary\_vector}(z, n)$
-    \State feasible $\gets$ true
-    \For{$m = 0$ to $N-1$}
-        \If{$\sum_{j=0}^{T-1} x_{mT+j} \neq 1$}
-            \State feasible $\gets$ false
-        \EndIf
     \EndFor
-    \If{feasible \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
-        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
-        \State $\mathbf{x}^* \gets \mathbf{x}$
-    \EndIf
-\EndFor
-\State \Return $\mathbf{x}^*, \text{Cost}^*$
-\end{algorithmic}
-\end{algorithm}
+    \State \Return $\sum_z |\langle z|\psi\rangle|^2 H[z]$
+\EndFunction
 
-The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
+\State $(\boldsymbol{\gamma}', \boldsymbol{\beta}') \gets \text{COBYLA}(\text{Cost}, I)$
 
-\begin{algorithm}[!htbp]
-\small
-\caption{QAOA Hardware Execution Pipeline}
-\label{alg:qaoa_hardware}
-\begin{algorithmic}[1]
-\Require machines $\mathcal{M}$, time slots $T$, API token, quantum backend
-\Ensure best feasible solution $\mathbf{x}^*$ and cost $\text{Cost}^*$
-\Statex \textbf{// Phase 1: Parameter optimisation on reduced problem}
-\State $N_{\text{opt}} \gets \min(N, 4)$
-\State $\mathcal{M}_{\text{opt}} \gets \mathcal{M}[0 : N_{\text{opt}}]$
-\State $(\mathbf{h}_{\text{opt}}, \mathbf{J}_{\text{opt}}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}_{\text{opt}}, T)$
-\State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets \text{QAOA-XY}(\mathbf{h}_{\text{opt}}, \mathbf{J}_{\text{opt}}, N_{\text{opt}}, T, p, \text{restarts}, \text{max\_iter})$
-\Statex \textbf{// Phase 2: Build parameterised circuit}
-\State $n_{\text{qubits}} \gets N \cdot T$
-\State $qc \gets \text{QuantumCircuit}(n_{\text{qubits}})$
-\For{$m = 0$ to $N-1$}
-    \State $qc.x(m \cdot T)$
+\If{$\text{Cost}(\boldsymbol{\gamma}', \boldsymbol{\beta}') < C^*$}
+    \State $C^* \gets \text{Cost}(\boldsymbol{\gamma}', \boldsymbol{\beta}')$
+    \State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets (\boldsymbol{\gamma}', \boldsymbol{\beta}')$
+\EndIf
+
 \EndFor
-\State $(\mathbf{h}_{\text{full}}, \mathbf{J}_{\text{full}}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}, T)$
-\For{$\ell = 0$ to $p-1$}
-    \Statex \textbf{// Problem unitary}
-    \For{$i = 0$ to $n_{\text{qubits}}-1$}
-        \State $qc.\text{rz}(2 \gamma^*_\ell \, h_{\text{full}}[i],\; i)$
-    \EndFor
-    \For{all $(i,j)$ with $J_{\text{full}}[i,j] \neq 0$}
-        \State $qc.\text{cx}(i, j)$
-        \State $qc.\text{rz}(2 \gamma^*_\ell \, J_{\text{full}}[i,j],\; j)$
-        \State $qc.\text{cx}(i, j)$
-    \EndFor
-    \Statex \textbf{// XY ring mixer}
-    \For{$m = 0$ to $N-1$}
-        \For{$t = 0$ to $T-1$}
-            \State $q_a \gets m \cdot T + t$
-            \State $q_b \gets m \cdot T + (t+1) \bmod T$
-            \State $qc.\text{cx}(q_a, q_b)$
-            \State $qc.\text{ry}(2 \beta^*_\ell, q_a)$
-            \State $qc.\text{cx}(q_b, q_a)$
-            \State $qc.\text{ry}(-2 \beta^*_\ell, q_a)$
-            \State $qc.\text{cx}(q_a, q_b)$
-        \EndFor
-    \EndFor
-\EndFor
-\State $qc.\text{measure\_all}()$
-\Statex \textbf{// Phase 3: Execute on hardware}
-\State $qc_t \gets \text{transpile}(qc, \text{backend}, \text{optimization\_level}=3)$
-\State job $\gets \text{SamplerV2}(\text{backend}).\text{run}(qc_t, \text{shots}=4096)$
-\State counts $\gets \text{job.result}()$
-\Statex \textbf{// Phase 4: Decode and select solution}
+
+\Statex \textbf{// Sampling}
+\State $\lvert \psi \rangle \gets \text{QAOA}(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*)$
 \State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
-\For{each $(\text{bitstring}, \text{count})$ in counts}
-    \State $\mathbf{x} \gets \text{decode}(\text{bitstring})$
-    \If{$\text{is\_one\_hot}(\mathbf{x}, N, T)$ \textbf{and} $\text{is\_capacity\_ok}(\mathbf{x})$}
+
+\For{top $200$ states $z$}
+    \State $\mathbf{x} \gets \text{binary\_vector}(z)$
+
+    \If{$\text{one\_hot}(\mathbf{x})$ \textbf{and} $\text{capacity\_ok}(\mathbf{x})$}
         \If{$\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
             \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
             \State $\mathbf{x}^* \gets \mathbf{x}$
         \EndIf
     \EndIf
 \EndFor
+
 \State \Return $\mathbf{x}^*, \text{Cost}^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
+
+\begin{algorithm}[!htbp]
+\footnotesize
+\setlength{\baselineskip}{9pt}
+\caption{QAOA Hardware Execution Pipeline}
+\label{alg:qaoa_hardware}
+\begin{algorithmic}[1]
+
+\Require $\mathcal{M}, T$, backend
+\Ensure $\mathbf{x}^*, \text{Cost}^*$
+
+\Statex \textbf{// Phase 1: Parameter optimisation}
+\State $N_{\text{opt}} \gets \min(N,4)$
+\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}[0:N_{\text{opt}}], T)$
+\State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets \text{QAOA-XY}(\mathbf{h}, \mathbf{J})$
+
+\Statex \textbf{// Phase 2: Circuit construction}
+\State $n \gets N \cdot T$, \quad $qc \gets \text{QuantumCircuit}(n)$
+\For{$m = 0$ to $N-1$}
+    \State $qc.x(mT)$
+\EndFor
+
+\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}, T)$
+
+\For{$\ell = 0$ to $p-1$}
+    \State apply problem unitary using $RZ$ and $CX$
+    \For{$m = 0$ to $N-1$}
+        \For{$t = 0$ to $T-1$}
+            \State apply XY mixer on $(mT+t,\; mT+(t+1)\bmod T)$
+        \EndFor
+    \EndFor
+\EndFor
+
+\State $qc.\text{measure\_all}()$
+
+\Statex \textbf{// Phase 3: Execution}
+\State $qc_t \gets \text{transpile}(qc,\text{backend})$
+\State counts $\gets \text{SamplerV2}(\text{backend}).\text{run}(qc_t)$
+
+\Statex \textbf{// Phase 4: Decode}
+\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
+
+\For{top bitstrings}
+    \State $\mathbf{x} \gets \text{decode}(\cdot)$
+    \If{$\text{feasible}(\mathbf{x})$ \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
+        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
+        \State $\mathbf{x}^* \gets \mathbf{x}$
+    \EndIf
+\EndFor
+
+\State \Return $\mathbf{x}^*, \text{Cost}^*$
+
 \end{algorithmic}
 \end{algorithm}
 
@@ -480,6 +463,8 @@ which is directly comparable across MILP, quantum-inspired, and quantum methods 
 \subsection{IBM Quantum Hardware Results}
 Table~\ref{tab:ibm_hardware} summarises the QAOA scaling study executed on the IBM Heron~r2 processor (\texttt{ibm\_fez}, 156 qubits) with $p=4$ QAOA layers and 4{,}096 measurement shots per run.
 
+The bold row $N=3$ in Table~\ref{tab:ibm_hardware} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
+
 \begin{table}[!htbp]
 \centering
 \caption{IBM Quantum hardware scaling study. Feasibility rate is the fraction of measurement shots yielding constraint-satisfying bitstrings. Circuit depth and gate counts are post-transpilation for the \texttt{ibm\_fez} topology. Beyond approximately $N=15$ machines the transpiled depth exceeds hardware coherence times and the output degrades to uniform noise.}
@@ -513,8 +498,6 @@ Table~\ref{tab:ibm_hardware} summarises the QAOA scaling study executed on the I
 \end{tabularx}
 \end{table}
 \FloatBarrier
-
-The bold row $N=3$ in Table~\ref{tab:ibm_hardware} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
 The remaining rows $N=5$--$30$ are simulator-projected estimates from the noise-scaling model below; their measured replication is left to follow-up work because the hardware queue and per-instance shot budget grow rapidly beyond $N=4$. The noise analysis reveals exponential fidelity decay with circuit depth:
 \begin{align}

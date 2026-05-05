@@ -192,7 +192,8 @@ Energy      & $0$~kWh     & $500$~kWh   & $600$~kWh   & $200$~kWh   & $50$~kWh /
 The constraints engine evaluates each reading against this space to produce a machine state vector s = [$is_operating$, $risk_state$, $health_index$, $damage_index$, $anomaly_score$, violations]. This state vector is the primary input to the priority computation algorithm used by Phase 2. The maintenance priority score P for each machine is computed as a weighted linear combination of state indicators:
 
 \begin{verbatim}
-P(m) = 100 * I_shutdown(m) + 50 * I_risk(m) + 30 * (1 - H(m)) + 20 * D(m) + 15 * A(m) + 5 * |V(m)|
+P(m) = 100 * I_shutdown(m) + 50 * I_risk(m) 
++ 30 * (1 - H(m)) + 20 * D(m) + 15 * A(m) + 5 * |V(m)|
 where:
  I_shutdown = 1 if machine is non-operating
  I_risk = 1 if machine is in risk state
@@ -242,6 +243,11 @@ The full streaming pipeline was run on $N=50$ machines (each $60$ readings $=$ $
 \subsection{Streaming Outcome Summary}
 After $5$ windows per machine, the constraints engine flagged $45$ of $50$ machines as needing maintenance — all CRITICAL — with the remaining $5$ at LOW (excluded from scheduling). Average priority $144.4$, health $0.479$, damage $0.438$, reflecting cumulative violations over the $50$-reading horizon (Table~\ref{tab:stream50_summary}).
 
+
+\subsection{Cognitive-Layer to Scheduling-Layer Handover}
+The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot duration $\sim 3$~h) and $N_{\text{maint}} \cdot T = 855$ binary decision variables — substantially larger than the synthetic ceiling at $N=30$ used for the controlled benchmarks of Chapter~6. The solver-level comparison on this instance, including measured cost, feasibility, and wall-time across MILP/CBC, QIEA, and the quantum-inspired baselines, is the responsibility of Chapter~6 (\S6.10) and is not reported here. For the multi-agent integration test, the relevant outcome is binary: the downstream MILP/CBC solver returned a one-hot- and capacity-feasible schedule for all $45$ forwarded machines in $36.9$~ms, well inside the $60$-s Kafka cycle. The end-to-end run therefore exercises the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) in series for $50$ machines without manual intervention, confirming that the multi-agent system closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
+
+
 \begin{table}[!htbp]
 \centering
 \caption{Cognitive-layer output of the multi-agent pipeline on 50 streamed machines (5 analysis windows $\times$ 10 readings per window). All values are produced by the constraints engine; no parameters were retuned for this fleet size.}
@@ -269,9 +275,6 @@ Average damage index                 & 0.438 & moderate cumulative damage accumu
 \end{tabularx}
 \end{table}
 \FloatBarrier
-
-\subsection{Cognitive-Layer to Scheduling-Layer Handover}
-The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot duration $\sim 3$~h) and $N_{\text{maint}} \cdot T = 855$ binary decision variables — substantially larger than the synthetic ceiling at $N=30$ used for the controlled benchmarks of Chapter~6. The solver-level comparison on this instance, including measured cost, feasibility, and wall-time across MILP/CBC, QIEA, and the quantum-inspired baselines, is the responsibility of Chapter~6 (\S6.10) and is not reported here. For the multi-agent integration test, the relevant outcome is binary: the downstream MILP/CBC solver returned a one-hot- and capacity-feasible schedule for all $45$ forwarded machines in $36.9$~ms, well inside the $60$-s Kafka cycle. The end-to-end run therefore exercises the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) in series for $50$ machines without manual intervention, confirming that the multi-agent system closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
 
 \subsection{Per-Machine Agent Output}
 \label{sec:agent_output_example}
@@ -301,4 +304,4 @@ The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Patter
 }
 \end{lstlisting}
 
-The fields trace back to specific agent outputs: \texttt{priority\_score} and \texttt{priority\_level} are emitted by the Planning agent from the linear weighting formula of \S5.3.2; \texttt{health\_index}, \texttt{damage\_index}, \texttt{anomaly\_score}, \texttt{is\_operating}, and \texttt{risk\_state} are derived by the Monitoring agent through the constraints engine of \S5.3.2; \texttt{n\_violations} and \texttt{violation\_types} are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; \texttt{needs\_maintenance} is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.
+The fields trace back to specific agent outputs: \texttt{priority\_score} and \texttt{priority\_level} are emitted by the Planning agent from the linear weighting formula of 5.3.2; \texttt{health\_index}, \texttt{damage\_index}, \texttt{anomaly\_score}, \texttt{is\_operating}, and \texttt{risk\_state} are derived by the Monitoring agent through the constraints engine of 5.3.2; \texttt{n\_violations} and \texttt{violation\_types} are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; \texttt{needs\_maintenance} is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.
