@@ -150,7 +150,7 @@ The penalty weights are then set as:
 \lambda_{\text{cap}}    &= 2 \cdot C_{\max}.
 \end{align}
 
-The factor of 3 in $\lambda_{\text{assign}}$ ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
+The factor of 3 in lambda_assign ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
 
 \begin{algorithm}[htbp]
 \small
@@ -248,76 +248,76 @@ G &= \max\!\left(200,\; \min\!\left(400,\; n_{\text{bits}}\right)\right).
 
 This prevents both under-exploration for large problems and wasteful computation for small ones.
 
-\begin{algorithm}[htbp]
-\small
-\caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
-\label{alg:qiea}
-\begin{algorithmic}[1]
-\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, number of variables $n = N \cdot T$, number of machines $N$, number of time slots $T$
-\Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
-\Statex \textbf{// Adaptive parameter scaling}
-\State $K \gets \max\!\left(20,\; \min\!\left(50,\; \left\lfloor \frac{n}{4} \right\rfloor \right)\right)$
-\State $G \gets \max\!\left(200,\; \min\!\left(400,\; n \right)\right)$
-\Statex \textbf{// Initialise quantum population}
-\For{$k = 0$ to $K-1$}
-    \For{$i = 0$ to $n-1$}
-        \State $\alpha_{k,i} \gets \frac{1}{\sqrt{2}}$
-        \State $\beta_{k,i} \gets \frac{1}{\sqrt{2}}$
-    \EndFor
-\EndFor
-\State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
-\Statex
-\For{$g = 0$ to $G-1$}
-    \Statex \textbf{// Step 1: Observation}
-    \For{$k = 0$ to $K-1$}
-        \For{$i = 0$ to $n-1$}
-            \State $r \sim \mathcal{U}(0,1)$
-            \State $x_{k,i} \gets 
-            \begin{cases}
-            1, & r < \beta_{k,i}^2 \\
-            0, & \text{otherwise}
-            \end{cases}$
-        \EndFor
-    \EndFor
-    \Statex \textbf{// Step 2: Evaluation}
-    \For{$k = 0$ to $K-1$}
-        \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
-        \If{$E_k < E^*$}
-            \State $E^* \gets E_k$
-            \State $\mathbf{x}^* \gets \mathbf{x}_k$
-        \EndIf
-    \EndFor
-    \Statex \textbf{// Step 3: Update (Q-gate rotation)}
-    \State $\Delta \theta \gets 0.01\pi \cdot \max\!\left(0.1,\; 1 - \frac{g}{G}\right)$
-    \For{$k = 0$ to $K-1$}
-        \For{$i = 0$ to $n-1$}
-            \If{$x_{k,i} = x^*_i$}
-                \State \textbf{continue}
-            \EndIf
-            \If{$x^*_i = 1$}
-                \State $\text{sign} \gets 
-                \begin{cases}
-                +1, & \alpha_{k,i} \beta_{k,i} > 0 \\
-                -1, & \text{otherwise}
-                \end{cases}$
-            \Else
-                \State $\text{sign} \gets 
-                \begin{cases}
-                -1, & \alpha_{k,i} \beta_{k,i} > 0 \\
-                +1, & \text{otherwise}
-                \end{cases}$
-            \EndIf
-            \State $\delta \gets \text{sign} \cdot \Delta \theta$
-            \State $\alpha'_{k,i} \gets \cos(\delta)\,\alpha_{k,i} - \sin(\delta)\,\beta_{k,i}$
-            \State $\beta'_{k,i} \gets \sin(\delta)\,\alpha_{k,i} + \cos(\delta)\,\beta_{k,i}$
-            \State $\alpha_{k,i} \gets \alpha'_{k,i}$
-            \State $\beta_{k,i} \gets \beta'_{k,i}$
-        \EndFor
-    \EndFor
-\EndFor
-\State \Return $\mathbf{x}^*, E^*$
-\end{algorithmic}
-\end{algorithm}
+% \begin{algorithm}[htbp]
+% \small
+% \caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
+% \label{alg:qiea}
+% \begin{algorithmic}[1]
+% \Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, number of variables $n = N \cdot T$, number of machines $N$, number of time slots $T$
+% \Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
+% \Statex \textbf{// Adaptive parameter scaling}
+% \State $K \gets \max\!\left(20,\; \min\!\left(50,\; \left\lfloor \frac{n}{4} \right\rfloor \right)\right)$
+% \State $G \gets \max\!\left(200,\; \min\!\left(400,\; n \right)\right)$
+% \Statex \textbf{// Initialise quantum population}
+% \For{$k = 0$ to $K-1$}
+%     \For{$i = 0$ to $n-1$}
+%         \State $\alpha_{k,i} \gets \frac{1}{\sqrt{2}}$
+%         \State $\beta_{k,i} \gets \frac{1}{\sqrt{2}}$
+%     \EndFor
+% \EndFor
+% \State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
+% \Statex
+% \For{$g = 0$ to $G-1$}
+%     \Statex \textbf{// Step 1: Observation}
+%     \For{$k = 0$ to $K-1$}
+%         \For{$i = 0$ to $n-1$}
+%             \State $r \sim \mathcal{U}(0,1)$
+%             \State $x_{k,i} \gets 
+%             \begin{cases}
+%             1, & r < \beta_{k,i}^2 \\
+%             0, & \text{otherwise}
+%             \end{cases}$
+%         \EndFor
+%     \EndFor
+%     \Statex \textbf{// Step 2: Evaluation}
+%     \For{$k = 0$ to $K-1$}
+%         \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
+%         \If{$E_k < E^*$}
+%             \State $E^* \gets E_k$
+%             \State $\mathbf{x}^* \gets \mathbf{x}_k$
+%         \EndIf
+%     \EndFor
+%     \Statex \textbf{// Step 3: Update (Q-gate rotation)}
+%     \State $\Delta \theta \gets 0.01\pi \cdot \max\!\left(0.1,\; 1 - \frac{g}{G}\right)$
+%     \For{$k = 0$ to $K-1$}
+%         \For{$i = 0$ to $n-1$}
+%             \If{$x_{k,i} = x^*_i$}
+%                 \State \textbf{continue}
+%             \EndIf
+%             \If{$x^*_i = 1$}
+%                 \State $\text{sign} \gets 
+%                 \begin{cases}
+%                 +1, & \alpha_{k,i} \beta_{k,i} > 0 \\
+%                 -1, & \text{otherwise}
+%                 \end{cases}$
+%             \Else
+%                 \State $\text{sign} \gets 
+%                 \begin{cases}
+%                 -1, & \alpha_{k,i} \beta_{k,i} > 0 \\
+%                 +1, & \text{otherwise}
+%                 \end{cases}$
+%             \EndIf
+%             \State $\delta \gets \text{sign} \cdot \Delta \theta$
+%             \State $\alpha'_{k,i} \gets \cos(\delta)\,\alpha_{k,i} - \sin(\delta)\,\beta_{k,i}$
+%             \State $\beta'_{k,i} \gets \sin(\delta)\,\alpha_{k,i} + \cos(\delta)\,\beta_{k,i}$
+%             \State $\alpha_{k,i} \gets \alpha'_{k,i}$
+%             \State $\beta_{k,i} \gets \beta'_{k,i}$
+%         \EndFor
+%     \EndFor
+% \EndFor
+% \State \Return $\mathbf{x}^*, E^*$
+% \end{algorithmic}
+% \end{algorithm}
 
 The rotation gate (lines 45–49) is the core quantum-inspired mechanism. Unlike classical genetic algorithms that rely on crossover and mutation, QIEA evolves the probability distribution over solutions. The annealing schedule on Δθ (line 34) ensures broad exploration in early generations (large rotations) and fine-tuning in later generations (small rotations), analogous to the temperature schedule in simulated annealing but operating in the amplitude space.
 
@@ -352,72 +352,72 @@ The key distinction between SQA and classical simulated annealing lies in the in
 \subsection{QAOA with XY Ring Mixer}
 The Quantum Approximate Optimization Algorithm (Farhi et al., 2014) constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al. (2019), we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
 
-\begin{algorithm}[htbp]
-\small
-\caption{QAOA with XY Mixer for Scheduling}
-\label{alg:qaoa_xy}
-\begin{algorithmic}[1]
-\Require local fields $\mathbf{h}$, couplings $\mathbf{J}$, machines $N$, time slots $T$, layers $p$, restarts $R$, max iterations $I$
-\Ensure best feasible solution $\mathbf{x}^*$ and cost $C^*$
-\State $n \gets N \cdot T$
-\State $\text{dim} \gets 2^n$
-\Statex \textbf{// Precompute Ising Hamiltonian diagonal}
-\For{$z = 0$ to $\text{dim}-1$}
-    \State $\boldsymbol{\sigma} \gets \text{spin\_vector}(z, n)$
-    \State $H_{\text{diag}}[z] \gets \sum_i h_i \sigma_i + \sum_{i<j} J_{i,j} \sigma_i \sigma_j$
-\EndFor
-\Statex \textbf{// Initial state: one-hot per machine}
-\State $\lvert \psi_{\text{init}} \rangle \gets \bigotimes_{m=1}^{N} \lvert 10\ldots 0 \rangle$
-\State $\gamma^* \gets \emptyset$, \quad $\boldsymbol{\beta}^* \gets \emptyset$, \quad $C^* \gets +\infty$
-\Statex
-\For{$r = 0$ to $R-1$}
-    \State $(\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0) \gets \text{random initial angles in } \mathbb{R}^p \times \mathbb{R}^p$
-    \Statex \textbf{// Define cost function}
-    \Function{QAOA\_Cost}{$\boldsymbol{\gamma}, \boldsymbol{\beta}$}
-        \State $\lvert \psi \rangle \gets \lvert \psi_{\text{init}} \rangle$
-        \For{$\ell = 0$ to $p-1$}
-            \State $\lvert \psi \rangle \gets e^{-i \gamma_\ell H_{\text{diag}}} \lvert \psi \rangle$
-            \For{$m = 0$ to $N-1$}
-                \For{$t = 0$ to $T-1$}
-                    \State $q_a \gets m \cdot T + t$
-                    \State $q_b \gets m \cdot T + (t+1) \bmod T$
-                    \State Apply XY($\beta_\ell$) on $(q_a, q_b)$:
-                    \Statex \hspace{2em}
-                    $\lvert 01 \rangle \rightarrow \cos(\beta_\ell)\lvert 01 \rangle - i\sin(\beta_\ell)\lvert 10 \rangle$
-                    \Statex \hspace{2em}
-                    $\lvert 10 \rangle \rightarrow -i\sin(\beta_\ell)\lvert 01 \rangle + \cos(\beta_\ell)\lvert 10 \rangle$
-                \EndFor
-            \EndFor
-        \EndFor
-        \State \Return $\sum_z |\langle z | \psi \rangle|^2 \cdot H_{\text{diag}}[z]$
-    \EndFunction
-    \State $(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) \gets \text{COBYLA}(\text{QAOA\_Cost}, (\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0), I)$
-    \If{$\text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) < C^*$}
-        \State $C^* \gets \text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}})$
-        \State $\boldsymbol{\gamma}^* \gets \boldsymbol{\gamma}_{\text{opt}}$
-        \State $\boldsymbol{\beta}^* \gets \boldsymbol{\beta}_{\text{opt}}$
-    \EndIf
-\EndFor
-\Statex \textbf{// Sampling best solution}
-\State $\lvert \psi_{\text{final}} \rangle \gets \text{QAOA}(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*)$
-\State $p(z) \gets |\langle z | \psi_{\text{final}} \rangle|^2$
-\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
-\For{top $200$ states $z$ sorted by $p(z)$}
-    \State $\mathbf{x} \gets \text{binary\_vector}(z, n)$
-    \State feasible $\gets$ true
-    \For{$m = 0$ to $N-1$}
-        \If{$\sum_{j=0}^{T-1} x_{mT+j} \neq 1$}
-            \State feasible $\gets$ false
-        \EndIf
-    \EndFor
-    \If{feasible \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
-        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
-        \State $\mathbf{x}^* \gets \mathbf{x}$
-    \EndIf
-\EndFor
-\State \Return $\mathbf{x}^*, \text{Cost}^*$
-\end{algorithmic}
-\end{algorithm}
+% \begin{algorithm}[htbp]
+% \small
+% \caption{QAOA with XY Mixer for Scheduling}
+% \label{alg:qaoa_xy}
+% \begin{algorithmic}[1]
+% \Require local fields $\mathbf{h}$, couplings $\mathbf{J}$, machines $N$, time slots $T$, layers $p$, restarts $R$, max iterations $I$
+% \Ensure best feasible solution $\mathbf{x}^*$ and cost $C^*$
+% \State $n \gets N \cdot T$
+% \State $\text{dim} \gets 2^n$
+% \Statex \textbf{// Precompute Ising Hamiltonian diagonal}
+% \For{$z = 0$ to $\text{dim}-1$}
+%     \State $\boldsymbol{\sigma} \gets \text{spin\_vector}(z, n)$
+%     \State $H_{\text{diag}}[z] \gets \sum_i h_i \sigma_i + \sum_{i<j} J_{i,j} \sigma_i \sigma_j$
+% \EndFor
+% \Statex \textbf{// Initial state: one-hot per machine}
+% \State $\lvert \psi_{\text{init}} \rangle \gets \bigotimes_{m=1}^{N} \lvert 10\ldots 0 \rangle$
+% \State $\gamma^* \gets \emptyset$, \quad $\boldsymbol{\beta}^* \gets \emptyset$, \quad $C^* \gets +\infty$
+% \Statex
+% \For{$r = 0$ to $R-1$}
+%     \State $(\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0) \gets \text{random initial angles in } \mathbb{R}^p \times \mathbb{R}^p$
+%     \Statex \textbf{// Define cost function}
+%     \Function{QAOA\_Cost}{$\boldsymbol{\gamma}, \boldsymbol{\beta}$}
+%         \State $\lvert \psi \rangle \gets \lvert \psi_{\text{init}} \rangle$
+%         \For{$\ell = 0$ to $p-1$}
+%             \State $\lvert \psi \rangle \gets e^{-i \gamma_\ell H_{\text{diag}}} \lvert \psi \rangle$
+%             \For{$m = 0$ to $N-1$}
+%                 \For{$t = 0$ to $T-1$}
+%                     \State $q_a \gets m \cdot T + t$
+%                     \State $q_b \gets m \cdot T + (t+1) \bmod T$
+%                     \State Apply XY($\beta_\ell$) on $(q_a, q_b)$:
+%                     \Statex \hspace{2em}
+%                     $\lvert 01 \rangle \rightarrow \cos(\beta_\ell)\lvert 01 \rangle - i\sin(\beta_\ell)\lvert 10 \rangle$
+%                     \Statex \hspace{2em}
+%                     $\lvert 10 \rangle \rightarrow -i\sin(\beta_\ell)\lvert 01 \rangle + \cos(\beta_\ell)\lvert 10 \rangle$
+%                 \EndFor
+%             \EndFor
+%         \EndFor
+%         \State \Return $\sum_z |\langle z | \psi \rangle|^2 \cdot H_{\text{diag}}[z]$
+%     \EndFunction
+%     \State $(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) \gets \text{COBYLA}(\text{QAOA\_Cost}, (\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0), I)$
+%     \If{$\text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) < C^*$}
+%         \State $C^* \gets \text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}})$
+%         \State $\boldsymbol{\gamma}^* \gets \boldsymbol{\gamma}_{\text{opt}}$
+%         \State $\boldsymbol{\beta}^* \gets \boldsymbol{\beta}_{\text{opt}}$
+%     \EndIf
+% \EndFor
+% \Statex \textbf{// Sampling best solution}
+% \State $\lvert \psi_{\text{final}} \rangle \gets \text{QAOA}(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*)$
+% \State $p(z) \gets |\langle z | \psi_{\text{final}} \rangle|^2$
+% \State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
+% \For{top $200$ states $z$ sorted by $p(z)$}
+%     \State $\mathbf{x} \gets \text{binary\_vector}(z, n)$
+%     \State feasible $\gets$ true
+%     \For{$m = 0$ to $N-1$}
+%         \If{$\sum_{j=0}^{T-1} x_{mT+j} \neq 1$}
+%             \State feasible $\gets$ false
+%         \EndIf
+%     \EndFor
+%     \If{feasible \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
+%         \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
+%         \State $\mathbf{x}^* \gets \mathbf{x}$
+%     \EndIf
+% \EndFor
+% \State \Return $\mathbf{x}^*, \text{Cost}^*$
+% \end{algorithmic}
+% \end{algorithm}
 
 The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
 
@@ -494,7 +494,7 @@ Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 mach
 \end{figure}
 
 \section{Classical Simulation (State Vector)}
-For validation and parameter optimization, the QAOA circuit is simulated using numpy state-vector computation. The state vector has dimension $2^n$, where $n = N \cdot T$ is the number of qubits. This limits classical simulation to approximately $N \leq 4$ machines (16 qubits, 65{,}536 states) due to exponential memory scaling. Variational parameters $(\gamma_l, \beta_l)$ for $l = 1, \ldots, p$ are optimized using COBYLA with multiple random restarts. The cost function is the expectation value of the problem Hamiltonian:
+For validation and parameter optimization, the QAOA circuit is simulated using numpy state-vector computation. The state vector has dimension $2^n$, where n = N * T is the number of qubits. This limits classical simulation to approximately N <= 4 machines (16 qubits, 65,536 states) due to exponential memory scaling. Variational parameters $$(gamma_l, beta_l)$ for l = 1, ..., p are optimized using COBYLA with multiple random restarts. The cost function is the expectation value of the problem Hamiltonian:
 
 \begin{equation}
 C(\boldsymbol{\gamma}, \boldsymbol{\beta}) 
@@ -617,7 +617,7 @@ c c c c c c c
 \bottomrule
 \end{tabularx}
 \footnotesize
-\textit{Note: SQA skipped for $N > 10$ due to timeout. Gap $= (\mathrm{Cost}_{\mathrm{method}} - \mathrm{Cost}_{\mathrm{MILP}})/\mathrm{Cost}_{\mathrm{MILP}} \times 100\%$. Dashes indicate method not executed at that scale.}
+\textit{Note: SQA skipped for $N \gt 10$ due to timeout. Gap $= (\text{Cost}_{\text{method}} - \text{Cost}_{\text{MILP}})/\text{Cost}_{\text{MILP}} \times 100\%$. Dashes indicate method not executed at that scale.}
 
 \end{table}
 
