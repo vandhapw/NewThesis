@@ -191,7 +191,7 @@ where:
 Priority levels are assigned categorically: CRITICAL (P >= 100), HIGH (P >= 60), MEDIUM (P
 >= 30), and LOW (P < 30). Only machines with P >= 50 or explicit $needs_maintenance$ flags are forwarded to the scheduling solver.
 
-\section{Comparative Analysis: Multi-Agent vs Monolitic Architecture}
+\section{Comparative Analysis: Multi-Agent vs Monolithic Architecture}
 To demonstrate the effectiveness of the proposed multi-agent architecture, we present a systematic comparison against a monolithic (non-agent) baseline. The monolithic system processes the same sensor data using a single LLM call with a combined prompt that encompasses all reasoning tasks (monitoring, diagnosis, planning, and scheduling) in one invocation. Both systems were evaluated on identical input data comprising 500 sensor windows from 50 machines over 10 hours of simulated operation. The evaluation metrics include: decision quality (measured by scheduling cost optimality gap against MILP), processing throughput (windows processed per minute), fault detection rate (F1 score for known anomaly patterns), and explanation quality (assessed by domain experts on a 1-5 Likert scale). The monolithic baseline uses a single DeepSeek-v4-Pro call with a comprehensive prompt containing all constraints, while the multiagent system distributes reasoning across nine specialized agents with dedicated prompts.
 \begin{table}[htbp]
 \centering

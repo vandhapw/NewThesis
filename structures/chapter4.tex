@@ -355,7 +355,7 @@ target parameters $\mu_{\text{mfg}}^{\text{temp}}, \sigma_{\text{mfg}}^{\text{te
 \end{algorithm}
 This approach offers several advantages over simpler alternatives: (a) it is parameter-free beyond the target distribution moments; (b) the rolling buffer adapts to sensor drift and seasonal variations; (c) z-score mapping is monotonic and preserves the ordinal relationship between readings; and (d) it avoids the need for a paired calibration dataset, which would be impractical to collect across all operating conditions.
 
-\subsection{Anchor Strategy: Machne 40 as the Sensing Surrogate}
+\subsection{Anchor Strategy: Machine 40 as the Sensing Surrogate}
 The active sensor is conceptually treated as being physically co-located with Machine 40, designated as the **anchor machine**. This design choice reduces the problem from simultaneous multi-machine sensing to a single-point observation with graph-based propagation. The anchor machine receives the aligned sensor readings directly (temperature and humidity from the aligner), while the T-GCN predicts the remaining three features (vibration, pressure, energy consumption) using the full 7-feature model.
 
 \subsection{Fleet Propagation Mechanism}
