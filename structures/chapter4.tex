@@ -11,9 +11,9 @@ The architecture is containerized using Docker and deployed on an Ubuntu 22.04 L
 
 \section{Dataset Description and Sensor Characteristics}
 
-The empirical foundation of the spatio-temporal forecasting layer rests on a real-world smart manufacturing sensor dataset comprising 100,000 timestamped observations collected from 50 industrial machines over a continuous 69-day monitoring period. Each observation records the simultaneous state of thirteen variables: a timestamp, a machine identifier (ranging from 1 to 50), five continuous sensor channels (temperature, vibration, humidity, pressure, and energy consumption), three derived condition indicators (machine status, anomaly flag, and downtime risk), and three maintenance-relevant labels (predicted remaining useful life, failure type, and maintenance required). The dataset is complete with no missing values across all 1,300,000 individual data points, a property that reflects the robust data quality management practices of the industrial monitoring system from which it was collected.
+Building on the dataset overview of Chapter~3 (\S3.3), this section reports the descriptive statistics that drive the modelling decisions of the forecasting layer; redundant enumeration of fields and basic correlations is omitted. The dataset is complete (no missing values across all $1{,}300{,}000$ data points), enabling unbroken sliding-window training without imputation.
 
-The five continuous sensor channels exhibit the statistical profiles summarized in Table~\ref{tab:sensor_stats}. Temperature is the most discriminative sensor for anomaly detection, with a mean of 75.02\textdegree C and a Pearson correlation of $r = 0.447$ with the anomaly flag. Vibration shows a 19\% elevation in anomalous readings (mean 58.51) compared to normal readings (mean 49.18) and is the primary indicator of the Vibration Issue failure type. Humidity exhibits near-zero linear correlation with anomaly occurrence, contributing to fault detection through nonlinear interaction effects captured by the deep learning layers.
+Table~\ref{tab:sensor_stats} summarises the five continuous sensor channels. Two distributional properties drive forecasting-architecture choices. \emph{Vibration} shows a $19\%$ elevation in anomalous readings (mean $58.51$ vs $49.18$ normal) and is the primary indicator of the \texttt{Vibration Issue} failure type, motivating its first-difference treatment in the T-GCN input. \emph{Humidity} has near-zero linear correlation with the anomaly flag yet remains predictive through nonlinear cross-sensor interactions, supporting the inclusion of multi-channel feature engineering rather than per-channel modelling.
 
 \begin{table}[!htbp]
 \centering
@@ -35,7 +35,7 @@ Energy (kWh)      & 0.50   & 5.00   & 2.75   & 1.30  & $\approx$ 0.006 \\
 \end{tabular}
 \end{table}
 
-The target variable distributions are summarized in Table~\ref{tab:target_stats}. The binary anomaly flag shows an 8.92\% positive rate, which is characteristic of real industrial anomaly detection problems and drives the choice of F1-score as the primary evaluation metric. The failure type variable exhibits severe class imbalance, with Normal operation constituting 91.90\% of readings. The predicted remaining useful life (RUL) variable follows a near-uniform distribution across the range 1--499 hours, with 16,333 critical readings below 50 hours and 1,637 readings below 10 hours representing machines on the verge of imminent failure.
+Target-variable distributions (Table~\ref{tab:target_stats}) reflect the operational rarity of failure: $8.92\%$ anomaly positives, $9.85\%$ stopped + $10.06\%$ warning machine-statuses, severe failure-type imbalance ($91.90\%$ Normal vs four minority classes at $1$--$3\%$), and a near-uniform RUL distribution (mean $234$~h, std $150$~h). These properties drive the use of F1-score as the primary classification metric and motivate the supervised-benchmark design of \S4.7 below.
 
 \begin{table}[!htbp]
 \centering
@@ -306,13 +306,6 @@ Table~\ref{tab:centrality_ranking} presents the top five machines ranked by out-
 
 Machine~40 appears in both tables (out-degree rank 1 and in-degree rank 2), indicating that it is not only the most influential source of thermal propagation but also strongly influenced by other machines. This bidirectional connectivity makes Machine~40 a \emph{hub node} in the machine correlation network: it both drives and responds to thermal dynamics across the factory floor.
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=\textwidth]{figures/images/multi-source-graph-simulation.png}
-    \caption{Multi-source graph simulation demonstrating cross-machine propagation via the T-GCN adjacency graph. Source machines (Machine~40, 27, 14, dashed lines) drive dependent machines (Machine~1, 50, 32, solid lines) through the cross-correlation edges. The simulation shows coherent oscillation propagation during normal operation (steps 0--50) followed by joint collapse at step~50, validating the \texttt{propagate\_from\_anchor} mechanism for anomaly-driven machine-wide prediction.}
-    \label{fig:graph_sim}
-\end{figure}
-
 \section{T-GCN Model Architecture}
 The T-GCN architecture employed in this work comprises three stacked components, as illustrated in Figure \ref{fig:tgcn-flowchart}.
 \begin{figure}[!htbp]
@@ -513,7 +506,7 @@ Figure~\ref{fig:model_performance} presents a four-panel performance summary com
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
-    \caption{Four-panel model performance comparison: (top-left) $R^2$ score per sensor feature for all three architectures; (top-right) MSE per feature on log scale; (bottom-left) aggregate average $R^2$, inverse MSE, and inverse MAE; (bottom-right) training loss convergence over 15 epochs. T-GCN (CC-Adj, gold) consistently outperforms both the OptimizedLSTM (teal) and Hybrid LSTM-GCN (magenta) baselines and achieves the fastest convergence to the lowest final training loss.}
+    \caption{Model performance comparison across $R^2$ per feature, log-scale MSE per feature, aggregate metrics, and training-loss convergence (15 epochs). T-GCN (CC-Adj, gold) leads on every panel; OptimizedLSTM (teal) and Hybrid LSTM--GCN (magenta) trail on accuracy and converge more slowly.}
     \label{fig:model_performance}
 \end{figure}
 
@@ -522,7 +515,7 @@ Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the au
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-horizon-per-model-feature.png}
-    \caption{Multi-horizon autoregressive rollout predictions for four sensor channels (rows: temperature, vibration, humidity, pressure) across three models (columns: OptimizedLSTM, T-GCN CC-Adj, Hybrid LSTM-GCN). Solid black line: actual values; dashed coloured line: predicted values; shaded band: $\pm 1\sigma$ uncertainty across starting windows. T-GCN consistently maintains tighter uncertainty bands and closer tracking of actual trajectories, particularly for humidity and pressure, demonstrating superior multi-step robustness compared to baseline architectures.}
+    \caption{Multi-horizon autoregressive rollout predictions across four sensors (rows) and three models (columns). Solid black: actual; dashed: predicted; shaded band: $\pm 1\sigma$ across starting windows. T-GCN tracks the actual trajectory most closely with the tightest uncertainty bands, especially on humidity and pressure.}
     \label{fig:multi_horizon}
 \end{figure}
 
@@ -531,7 +524,7 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/horizon-mae-degradation-curve.png}
-    \caption{Horizon MAE Degradation Curves showing forecast error accumulation over 10 prediction steps for temperature, vibration, humidity, and pressure channels. All three models exhibit non-monotonic MAE growth reflecting sensor periodicity. T-GCN (CC-Adj, gold) consistently achieves the lowest MAE at most horizon steps, with the advantage most pronounced at medium horizons (steps 5--8) that are most critical for maintenance decision scheduling.}
+    \caption{Horizon MAE degradation across $10$ forecast steps for temperature, vibration, humidity, and pressure. Non-monotonic growth reflects sensor periodicity. T-GCN (CC-Adj, gold) holds the lowest MAE at most steps, with the largest margin at the medium horizons ($5$--$8$) most relevant for maintenance scheduling.}
     \label{fig:mae_degradation}
 \end{figure}
 
@@ -540,7 +533,7 @@ Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versu
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/prediction-vs-actual.png}
-    \caption{Prediction vs.\ Actual sample comparison for 200 test samples across temperature, vibration, humidity, and pressure channels. Each panel overlays actual values (solid black) with predictions from OptimizedLSTM, T-GCN (CC-Adj), and Hybrid LSTM-GCN. Per-model $R^2$ values are annotated in each legend. T-GCN consistently achieves the closest alignment with actual trajectories and the highest $R^2$ across all four sensor channels.}
+    \caption{Prediction vs.\ actual on $200$ test samples for temperature, vibration, humidity, and pressure. Each panel overlays actual (solid black) with predictions from OptimizedLSTM, T-GCN (CC-Adj), and Hybrid LSTM--GCN; per-model $R^2$ is annotated in each legend. T-GCN tracks the actual trajectory most closely on all four channels.}
     \label{fig:pred_vs_actual}
 \end{figure}
 
@@ -584,15 +577,9 @@ target parameters $\mu_{\text{mfg}}^{\text{temp}}, \sigma_{\text{mfg}}^{\text{te
 \end{algorithm}
 This approach offers several advantages over simpler alternatives: (a) it is parameter-free beyond the target distribution moments; (b) the rolling buffer adapts to sensor drift and seasonal variations; (c) z-score mapping is monotonic and preserves the ordinal relationship between readings; and (d) it avoids the need for a paired calibration dataset, which would be impractical to collect across all operating conditions.
 
-\subsection{Anchor Strategy: Machine 40 as the Sensing Surrogate}
-The active sensor is conceptually treated as being physically co-located with Machine 40, designated as the **anchor machine**. This design choice reduces the problem from simultaneous multi-machine sensing to a single-point observation with graph-based propagation. The anchor machine receives the aligned sensor readings directly (temperature and humidity from the aligner), while the T-GCN predicts the remaining three features (vibration, pressure, energy consumption) using the full 7-feature model.
-
-Beyond static graph analysis, the T-GCN enables a practical deployment scenario in which Machine~40 equipped with a fully active sensor suite---serves as the sole anchor data source for the entire machine pool. In this configuration, the Anchor Buffer Manager ingests the continuous five-channel sensor stream from Machine~40 and maintains a sliding window of the most recent readings. When a dependent machine lacks a complete sensor set (e.g., missing humidity or pressure due to instrumentation cost or sensor failure), the T-GCN does not treat that machine as isolated; instead, it propagates Machine~40's encoded spatial embedding through the graph convolution layers along the outgoing edges of the adjacency graph. The resulting dependent-machine prediction is therefore a \emph{graph-influenced} forecast that blends the machine's own partial observations with the anchor's thermal and mechanical state transmitted through the learned cross-correlation structure.
-
-
-This anchor-driven design has two immediate operational benefits. First, it reduces the minimum sensor instrumentation required for fleet-wide predictive maintenance: only Machine~40 needs a complete, high-reliability sensor suite, while dependents can operate with cheaper, partial instrumentation. Second, it enables early-warning propagation: because the graph encodes lagged thermal and mechanical influence relationships, an anomaly detected at Machine~40 generates predictive alerts for dependent machines before their own local sensors cross warning thresholds. The \texttt{propagate\_from\_anchor} function formalises this behaviour by injecting synthetic perturbations at the anchor and measuring their graph-mediated impact, confirming that the cross-correlation adjacency structure captures real, operationally relevant cross-machine dynamics.
-
 \subsection{Fleet Propagation Mechanism}
+The active sensor is conceptually co-located with Machine~40 (the anchor identified in \S4.4.2 by highest out-degree centrality): Machine~40 receives the aligned five-channel sensor stream and the T-GCN propagates its encoded state through the outgoing edges of the adjacency graph to predict every other machine. Operationally this reduces minimum instrumentation to one fully-instrumented hub (cheaper partial sensors elsewhere) and enables anomaly-driven early warning: a perturbation at the anchor generates predictive alerts at dependent machines before their local sensors cross warning thresholds.
+
 Once the anchor prediction is obtained, the change vector $\boldsymbol{\delta} \in \mathbb{R}^{7}$ (i.e., the scaled prediction delta) is propagated to all other machines through graph-mediated influence:
 \begin{equation}
 \mathbf{w}_m^{(t+1)}[-1] \;\leftarrow\;
