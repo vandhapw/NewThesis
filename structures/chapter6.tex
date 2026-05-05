@@ -3,14 +3,12 @@
 The quantum-inspired classical heuristic layer changes the decision profile of the agentic pipeline in the 7-machine demonstration. The Pauli-Z multi-sensor encoding function (\texttt{energy\_distance\_anomaly\_score}) computes a normalized L2 distance from the training-set median per feature, mapped through a cosine formulation that mirrors the Pauli-Z expectation structure, producing a composite risk indicator $\langle Z \rangle_c$. The QUBO-formulated priority ranking (\texttt{random\_constrained\_search}) is a greedy seed plus random 1-bit-flip local search that minimises a QUBO-energy objective. The QAOA-formulated scheduling (\texttt{graph\_message\_passing\_score}) performs weighted-neighbour averaging on the T-GCN adjacency matrix. \textbf{Critical disclosure:} None of these components are executed on quantum hardware; they are classical heuristics designed to preserve the mathematical structure of their quantum counterparts for future hardware migration \cite{Blekos2024, Preskill2018}.
 
 The heuristic layer numerical results for the 7-machine demonstration are summarized in Table~\ref{tab:heuristic_layer}. The per-sensor Pauli-Z expectations and composite $\langle Z \rangle_c$ are computed via the classical cosine-encoding formula (Equation~\ref{eq:composite_z}), not by executing the 5-qubit circuit shown in Figure~\ref{fig:pauliz_circuit} on a quantum processor.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/pauliz-circuit-diagram.png}
     \caption{Pauli-Z Multi-Sensor Risk Encoding Circuit for one machine: 5 qubits ($q_0$--$q_4$) correspond to temperature, vibration, humidity, pressure, and energy sensors with weights 0.30, 0.30, 0.15, 0.15, and 0.10 respectively. Gate sequence: Hadamard (H, blue) creates superposition; $R_Z(\theta=\pi\cdot\mathrm{norm})$ (orange) encodes normalised sensor value as rotation angle; CNOT (green) entangles adjacent sensor qubits to capture inter-sensor correlations; measurement (purple) collapses the state. Per-sensor Pauli-Z expectation $\langle Z_i \rangle = \cos(\pi\cdot\mathrm{norm}_i)$ maps the safe zone to $+1$, the warning zone to $0$, and the danger zone to $-1$. The composite weighted expectation $\langle Z \rangle_c$ (Equation~\ref{eq:composite_z}) determines the quantum risk label for each machine. \textbf{Disclosure:} This circuit is a mathematical abstraction; the actual implementation is a classical heuristic.}
     \label{fig:pauliz_circuit}
 \end{figure}
-
 \begin{table}[htbp]
 \centering
 \caption{Heuristic Layer Assessment for All 7 Machines (Classical Implementation)}
@@ -32,7 +30,6 @@ M-47 & $+$0.3608 & 0.3196 & \#7 & QUANTUM-MARGINAL & B (Planned) \\
 \hline
 \end{tabular}
 \end{table}
-
 The QUBO local search with minimum energy $-0.5144$ selects Machine~32 as the highest-priority machine, driven by its humidity Pauli-Z value of $-$0.8704 --- the sensor value closest to the heuristic danger threshold of $-1$ in the entire experimental batch. The greedy graph-message-passing scheduler partitions machines such that machines with higher heuristic risk scores and QUBO selections are prioritized for Slot~A. The heuristic override mechanism triggers for 5 out of 7 machines (M-1, M-2, M-3, M-4, M-32, M-40), escalating them from passive monitoring to active inspection or scheduled maintenance despite classical LOW or borderline MEDIUM risk levels.
 
 
@@ -134,12 +131,10 @@ where $T_0 = 5.0$, $T_{\min} = 10^{-4}$, and $K = 500$ iterations. This gives $\
 At the initial temperature $T_0 = 5.0$, a move with $\Delta E = 1.0$ is accepted with probability $\exp(-0.2) \approx 0.82$, encouraging broad exploration. At the final temperature $T_{\min} = 10^{-4}$, the same move is accepted with probability $\exp(-10^4) \approx 0$, enforcing convergence to a local minimum.
 
 \subsection{QAOA Hamiltonian and Variational Optimisation}
-
 \begin{equation}
     H_P = \frac{1}{2} \sum_{(i,j) \in E} (I - Z_i Z_j) - \sum_i r_i \cdot 0.3 \cdot Z_i
     \label{eq:qaoa_hamiltonian}
 \end{equation}
-
 The QAOA problem Hamiltonian (Equation~\ref{eq:qaoa_hamiltonian}) can be expanded for the $n$-machine scheduling problem. The MaxCut term for edge $(i,j)$ contributes:
 \begin{equation}
     H_{ij}^{\text{cut}} = \frac{1}{2}(I - Z_i Z_j)
@@ -169,7 +164,6 @@ via COBYLA (Constrained Optimisation by Linear Approximation), a derivative-free
 \label{sec:heuristic_disclosure}
 
 Table~\ref{tab:heuristic_disclosure} provides the post-audit algorithmic disclosure for the three components previously marketed under quantum labels. All are implemented as pure-Python classical heuristics in \texttt{classical\_optimization.py}.
-
 \begin{table}[htbp]
 \centering
 \caption{Classical Heuristic Disclosure (Enhanced Pipeline)}

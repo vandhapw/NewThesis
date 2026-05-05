@@ -3,14 +3,12 @@
 \subsection{Evolution of Manufacturing Paradigms}
 
 The transition from traditional manufacturing to smart manufacturing represents one of the most significant industrial transformations of the twenty-first century \cite{mobley_introduction_2002, jardine_review_2006}. As established in Chapter~1, Industry~4.0 integrates cyber-physical systems, the Industrial Internet of Things, cloud computing, and artificial intelligence to create autonomous, self-optimizing production environments. This section reviews the literature spanning the foundational technologies that enable such environments, the anomaly detection and predictive maintenance methods applied within them, the emerging roles of quantum computing and agentic AI, and the comparative state of existing integrated approaches.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/industry40_evolution.png}
     \caption{Evolution of manufacturing paradigms from Industry 1.0 to Industry 4.0. \cite{abdi_evolution_2018}.}
     \label{fig:industry40_evolution}
 \end{figure}
-
 The four industrial revolutions, depicted in Figure~\ref{fig:industry40_evolution}, mark distinct shifts in production philosophy. Industry~1.0 introduced mechanization powered by water and steam, replacing manual craftsmanship with machine-based manufacturing. Industry~2.0 brought mass production through electrification and assembly lines, enabling standardized output at unprecedented scale. Industry~3.0 added automation through programmable logic controllers and computer-aided manufacturing, decoupling production rate from direct human intervention. Industry~4.0 represents the current frontier, where cyber-physical systems, industrial IoT, and artificial intelligence converge to create self-monitoring, self-configuring, and self-optimising factories that respond in real time to operational conditions.
 
 % \subsection{Cyber-Physical Systems and Industrial IoT}
@@ -68,20 +66,17 @@ Industrial machines are monitored through multiple heterogeneous sensors whose j
     \caption{Edge computing infrastructure diagram showing the intermediate processing layer between industrial IoT devices and the cloud, enabling low-latency anomaly detection and real-time decision-making at the network edge \cite{wikimedia_edgecomputing}}
     \label{fig:edge_computing}
 \end{figure}
-
 The specific requirements of real-time anomaly detection in industrial IoT settings include low-latency inference, resource-constrained edge deployment, and handling of streaming data with adaptive thresholds. Nizam et al. \cite{nizam_real-time_2022} propose a lightweight deep anomaly detection framework that combines LSTM-based detection with adaptive threshold adjustment based on operational context, aligning with the one-minute sensor sampling interval of the research dataset. Wen and Keyes \cite{wen_time_2019} advance CNN-based segmentation approaches that outperform RNN-based methods on several benchmarks while achieving substantially lower computational cost, with transfer learning components enabling pre-training on source-domain time series before fine-tuning on target industrial data. Chouhan et al. \cite{Chouhan2019} investigate network-level deep convolutional anomaly detection with residual learning, proposing channel-boosting mechanisms with multiple parallel branches and kernel sizes of 3, 5, and 7 that directly parallel the multi-scale temporal pattern capture required in manufacturing environments.
 
 \section{Predictive Maintenance Approaches}
 
 Traditional predictive maintenance relies on statistical process control, survival analysis, and physical degradation models. Mobley \cite{mobley_introduction_2002} introduces the foundational concepts of vibration analysis, oil analysis, and thermography for machinery diagnostics. Jardine et al. \cite{jardine_review_2006} provide a comprehensive review of diagnostics and prognostics implementing condition-based maintenance, covering statistical pattern recognition, hidden Markov models, and particle filtering for remaining useful life estimation. While these classical methods offer interpretability and well-understood failure thresholds, they require extensive domain expertise, manual feature engineering, and struggle to model the complex nonlinear relationships between high-dimensional sensor streams and degradation trajectories in modern smart manufacturing environments.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/Predictive Maintenance Pipeline.png}
     \caption{Predictive maintenance pipeline stages from multi-sensor data ingestion to maintenance action, illustrating the fragmentation of existing approaches that QASAMAP addresses through unified multi-task learning. \cite{kendall_multi-task_2017}}
     \label{fig:pdm_pipeline}
 \end{figure}
-
 Deep learning has emerged as the dominant paradigm for data-driven prognostics. Hochreiter and Schmidhuber \cite{Hochreiter1997} introduced long short-term memory networks, which remain the baseline recurrent architecture for temporal degradation modelling. The research dataset's near-uniform RUL distribution (mean 234.27 hours, standard deviation 150.06 hours) confirms that single-snapshot static-feature-based RUL prediction is fundamentally limited, motivating the use of sequential architectures. Ruff et al. \cite{Ruff2021} survey deep one-class classification methods that learn compact descriptions of normality, providing a theoretical framework for understanding how deep networks model the boundary between normal and degraded operational regimes. These works collectively establish that temporal deep learning is essential for capturing the sequential degradation trajectories required for accurate remaining useful life estimation.
 
 Despite substantial progress in both anomaly detection and remaining useful life estimation, the literature predominantly treats these objectives as isolated problems addressed by distinct research communities. Anomaly detection studies focus on identifying outlier patterns \cite{chen_unsupervised_2020}, while prognostics research concentrates on estimating remaining useful life from degradation trajectories \cite{nizam_real-time_2022}, with limited cross-fertilisation between these complementary tasks. Kendall et al. \cite{kendall_multi-task_2017} demonstrated that jointly learned representations can improve individual task performance through uncertainty-weighted loss balancing, yet the predictive maintenance literature has not systematically exploited multi-task principles. The QASAMAP framework addresses this gap by integrating anomaly detection, RUL prediction, failure type classification, and maintenance scheduling within a unified architecture where shared representations benefit all downstream tasks.
@@ -111,11 +106,9 @@ Transfer learning enables models pre-trained on publicly available datasets to b
 The concept of autonomous agents computational entities that perceive environments, maintain world models, reason about goals, and execute purposeful actions has been central to artificial intelligence research since its inception. Wooldridge \cite{Wooldridge1995} established the foundational theoretical framework for multi-agent systems, defining autonomy, reactivity, pro-activeness, and social ability as core agent properties. Sapkota et al. \cite{sapkota_ai_2026} provide the most current conceptual taxonomy, rigorously distinguishing between individual AI agents (discrete, task-specific autonomous entities) and agentic AI systems (integrated architectures in which multiple agents collaborate, plan, reason, and execute over extended horizons). This distinction is fundamental to QASAMAP: the nine individual agents are specialised LLM-powered modules, while the complete system constitutes an agentic AI architecture in the full sense defined by Sapkota et al.
 
 
-
 % \subsection{LLM-Powered Agent Architectures}
 
 The rise of large language models has fundamentally altered the applicability of agentic AI to high-stakes industrial environments. Erukude et al. \cite{erukude_agentic_2025} document the emergence of LLM-powered autonomous agents, establishing the LLM reasoning core as the defining architectural innovation of contemporary agentic systems. Dwivedi et al. \cite{dwivedi_agentic_2026} clarify common misconceptions about agentic AI, identifying four key distinguishing properties: autonomous goal-directed behaviour, persistent memory across interaction cycles, dynamic tool invocation, and self-reflection capabilities. QASAMAP implements all four: the Planning Agent pursues fleet health optimisation autonomously; the ContextMemoryStore maintains continuously updated state; the orchestrator invokes deep learning inference, heuristic scheduling, and work-order generation dynamically; and the Self-Reflection Agent evaluates decision outcomes for continuous improvement.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/Multi-Agent.png}
@@ -141,23 +134,19 @@ Unlike classical bits that occupy exactly one of two states ($0$ or $1$), a quan
     \label{eq:qubit_state}
 \end{equation}
 where $\alpha, \beta \in \mathbb{C}$ are probability amplitudes. The geometric interpretation of this state is the Bloch sphere, a unit sphere in $\mathbb{R}^3$ where every point on the surface corresponds to a unique pure qubit state.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.55\textwidth]{figures/images/Bloch_sphere.png}
     \caption{The Bloch sphere, the canonical geometric representation of a single-qubit state $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$. The north pole represents $|0\rangle$, the south pole $|1\rangle$, and every other point on the surface a superposition of the two basis states. Image from Wikimedia Commons (CC BY-SA 3.0).}
     \label{fig:bloch_sphere}
 \end{figure}
-
 In the Bloch sphere parameterization shown in Figure~\ref{fig:bloch_sphere}, the state is written as $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$, where $\theta \in [0,\pi]$ is the polar angle and $\phi \in [0, 2\pi)$ is the azimuthal angle. The Pauli-$Z$ operator measures the projection onto the $z$-axis and its expectation value is $\langle Z \rangle = \cos\theta$, yielding $+1$ at the north pole ($|0\rangle$, safe zone) and $-1$ at the south pole ($|1\rangle$, danger zone). This continuous spectrum between $+1$ and $-1$ is the property that QASAMAP's Pauli-Z encoding heuristic mirrors classically: rather than a binary safe/danger indicator, the sensor risk is encoded as a continuous value capturing the degree of deviation from normality.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/Quantum NISQ.png}
     \caption{Quantum computing paradigms in the NISQ era, spanning quantum annealing, gate-based processors, and hybrid variational architectures, with applications to manufacturing optimization reviewed in the literature.\cite{dalyac_qualifying_2021, rosendo_quantum_2025, kreplin_squlearn_2025}}
     \label{fig:quantum_landscape}
 \end{figure}
-
 \subsection{Quantum Entanglement and Multi-Sensor Correlation}
 
 Quantum entanglement is a uniquely quantum mechanical phenomenon in which the state of a composite system cannot be factored into a product of individual subsystem states. For a two-qubit system, the maximally entangled Bell state is:
@@ -166,27 +155,23 @@ Quantum entanglement is a uniquely quantum mechanical phenomenon in which the st
     \label{eq:bell_state}
 \end{equation}
 Measuring the first qubit immediately collapses the second qubit to the same state, regardless of spatial separation. This non-local correlation, which Einstein, Podolsky, and Rosen famously critiqued as ``spooky action at a distance,'' has been experimentally verified through Bell inequality tests and underpins quantum communication and quantum error correction.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/images/EPR_paradox_thought_experiment.png}
     \caption{Illustration of the Einstein-Podolsky-Rosen (EPR) paradox: two entangled particles are prepared in a correlated state and separated; measurement of one particle instantaneously determines the state of the other, demonstrating quantum non-locality}
     \label{fig:epr_paradox}
 \end{figure}
-
 In the context of industrial sensor monitoring, entanglement provides a mathematical metaphor for capturing cross-sensor correlations that classical independent-feature models miss. Just as the state of one entangled qubit is inseparable from its partner, the health of one machine sensor may be intrinsically linked to another through shared operational context. The QASAMAP Pauli-Z encoding circuit uses CNOT gates between adjacent sensor qubits to introduce entanglement-like correlations in the joint density matrix, ensuring that the composite risk indicator reflects inter-sensor dependencies rather than treating each sensor in isolation.
 
 \subsection{Variational Quantum Circuits}
 
 Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits (PQC), form the algorithmic backbone of near-term quantum machine learning in the NISQ era. A VQC consists of three layers: an encoding layer that maps classical data into quantum states, a variational layer of parameterised unitary operations, and a measurement layer that extracts classical expectations from the resulting quantum state.
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/images/vqe_illustration.png}
     \caption{High-level illustration of a Variational Quantum Algorithm (VQE). Classical input data are encoded into a parameterised quantum circuit (ansatz); the resulting state is measured to compute an expectation value (e.g., energy); a classical optimiser updates the parameters iteratively to minimise the objective. Image from Wikimedia Commons (CC0).}
     \label{fig:vqe_illustration}
 \end{figure}
-
 The operation of a generic VQC can be formalised in three stages. \textbf{Stage 1 --- Encoding.} A classical input vector $\mathbf{x} \in \mathbb{R}^d$ is mapped into an $n$-qubit quantum state $|\psi(\mathbf{x})\rangle$ via a data-dependent unitary $U_E(\mathbf{x})$. The most common encoding is angle encoding, where each feature $x_i$ is mapped to a single-qubit rotation angle:
 \begin{equation}
     U_E(\mathbf{x}) = \bigotimes_{i=1}^{n} R_Z(x_i) \cdot H^{\otimes n}
@@ -211,7 +196,6 @@ The cost landscape is non-convex and generally contains barren plateaus at large
     \boldsymbol{\theta}^{(t+1)} = \boldsymbol{\theta}^{(t)} - \eta \, \nabla_{\boldsymbol{\theta}} C(\boldsymbol{\theta}^{(t)})
     \label{eq:classical_update}
 \end{equation}
-
 The gradient $\nabla_{\boldsymbol{\theta}} C$ cannot be computed classically for a general quantum circuit; instead, the \emph{parameter-shift rule} provides exact gradients from two shifted circuit evaluations:
 \begin{equation}
     \frac{\partial C}{\partial \theta_k} = \frac{1}{2}\Bigl[ C\bigl(\boldsymbol{\theta} + \tfrac{\pi}{2}\mathbf{e}_k\bigr) - C\bigl(\boldsymbol{\theta} - \tfrac{\pi}{2}\mathbf{e}_k\bigr) \Bigr]
@@ -266,25 +250,21 @@ where $A(t)$ starts large and decreases to zero, while $B(t)$ starts at zero and
 These theoretical foundations inform the design of QASAMAP's quantum-inspired heuristics, which preserve the Hamiltonian and QUBO mathematical structures while executing on classical hardware.
 
 \subsection{Quantum Annealing and QUBO Formulations}
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.7\textwidth]{figures/images/dwave_chip.jpg}
     \caption{Photograph of a D-Wave 128-qubit superconducting adiabatic quantum optimization processor, the hardware platform that implements quantum annealing for QUBO and Ising formulations. Image from Wikimedia Commons (CC BY 3.0).}
     \label{fig:dwave_chip}
 \end{figure}
-
 Quantum annealing solves combinatorial optimization problems by mapping them to Quadratic Unconstrained Binary Optimization formulations and finding minimum-energy states of an Ising Hamiltonian. Dalyac et al. \cite{dalyac_qualifying_2021} qualify quantum approaches for hard industrial optimization problems, demonstrating that quantum annealing provides competitive solution quality for practical problem sizes. Tambunan et al. \cite{Tambunan2022} provide detailed QUBO formulations for routing problems with weighted edge segments, showing that quantum annealers achieve solution quality within 5\% of optimal for up to 20 nodes. Holliday et al. \cite{holliday_advanced_2025} introduce constraint encoding techniques for time-window constraints in quantum annealing formulations directly applicable to maintenance scheduling with shift-based windows. Bova et al. \cite{Bova2021} review commercial quantum computing applications, identifying maintenance scheduling as one of the three highest-value near-term application areas for quantum optimization in industry.
 
 \subsection{QAOA for Combinatorial Scheduling}
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/images/qaoa_circuit.png}
     \caption{Quantum Approximate Optimization Algorithm (QAOA) circuit diagram showing the alternating application of problem Hamiltonian and mixer Hamiltonian operators across $p$ layers, the gate-based paradigm applied to combinatorial maintenance scheduling. Image from Wikimedia Commons (CC BY-SA 4.0).}
     \label{fig:qaoa_circuit}
 \end{figure}
-
 The Quantum Approximate Optimization Algorithm, introduced by Farhi et al. \cite{Farhi2014}, provides a gate-based approach to combinatorial optimization applicable to scheduling problems. Rosendo et al. \cite{rosendo_quantum_2025} demonstrate that QAOA achieves competitive solution quality compared to classical heuristics on vehicle routing problems of practical size on current NISQ hardware. Windgatter et al. \cite{windgatter_quantum_2025} explore software frameworks for mapping high-level optimization problems to quantum circuits, with problem-decomposition capabilities that partition large problems into hardware-compatible subproblems directly analogous to QASAMAP's hierarchical fleet decomposition. Dalal et al. \cite{dalal_digitized_2024} introduce digitised counterdiabatic QAOA variants that accelerate convergence at low circuit depths, valuable for NISQ hardware where coherence time limits circuit depth. Symons et al. \cite{symons_practitioners_2023} provide a practitioner's guide recommending QAOA for scheduling problems with quadratic objectives and linear constraints, directly validating the QASAMAP scheduling formulation.
 
 \subsection{Hybrid Quantum-Classical Systems}
@@ -361,11 +341,11 @@ The most significant limitation of existing approaches is the absence of integra
 A systematic comparison of state-of-the-art methodologies reveals three persistent gaps that constrain practical deployment. First, the siloed treatment of anomaly detection and prognostics prevents exploitation of shared representations that could improve both tasks simultaneously \cite{kendall_multi-task_2017}. Second, static model architectures cannot adapt to the non-stationary distributions inherent in real industrial operations \cite{lee_autoencoder-based_2024}. Third, the combinatorial complexity of scheduling maintenance across large machine pools exceeds the capabilities of classical greedy heuristics \cite{dalyac_qualifying_2021}. While individual works excel within their respective domains --- TSMAE for memory-augmented anomaly detection \cite{Gao2022}, QAOA for quantum scheduling \cite{rosendo_quantum_2025}, and agentic RAG for knowledge-augmented reasoning \cite{singh_agentic_2025} --- none provides an integrated solution that combines all three capabilities within a unified, adaptive, closed-loop architecture.
 
 
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
 \caption{Comparison of Methods}
+\label{tab:method_comparison}
 \renewcommand{\arraystretch}{1.2}
-
 \begin{tabularx}{\textwidth}{
 >{\raggedright\arraybackslash}X 
 >{\centering\arraybackslash}m{2cm}
@@ -374,7 +354,6 @@ A systematic comparison of state-of-the-art methodologies reveals three persiste
 >{\centering\arraybackslash}m{1.6cm}
 >{\centering\arraybackslash}m{2.4cm}
 }
-
 \toprule
 \textbf{Method} & 
 \textbf{Anomaly Detection} & 
@@ -383,19 +362,15 @@ A systematic comparison of state-of-the-art methodologies reveals three persiste
 \textbf{Agentic} & 
 \textbf{Closed-Loop Adapt.} \\
 \midrule
-
 TSMAE \cite{Gao2022}         & \ding{51} & \ding{55} & \ding{55} & \ding{55} & \ding{55} \\
 QAOA \cite{rosendo_quantum_2025}  & \ding{55} & \ding{55} & \ding{51} & \ding{55} & \ding{55} \\
 Agentic RAG \cite{singh_agentic_2025} & \ding{55} & \ding{55} & \ding{55} & \ding{51} & \ding{55} \\
 Multi-Task Learning - Semantics \cite{kendall_multi-task_2017} & Partial   & Partial   & \ding{55} & \ding{55} & \ding{55} \\
-
 \textbf{QASAMAP (This Study)} 
 & \ding{51} & \ding{51} & \ding{51} & \ding{51} & \ding{51} \\
-
 \bottomrule
 \end{tabularx}
 \end{table}
-
 \subsection{Positioning of QASAMAP}
 
 QASAMAP is positioned at the intersection of four active research fronts: spatiotemporal deep learning for industrial forecasting, multi-task supervised learning for joint health prediction, quantum-inspired classical heuristics for maintenance optimization, and agentic AI for autonomous decision orchestration. The framework integrates these components through a unified pipeline in which the T-GCN forecasting layer provides temporal context for the supervised classification and regression layer, whose outputs feed both the quantum-inspired heuristic layer for priority ranking and the agentic layer for decision-making. The ContextMemoryStore maintains state across cycles, the LearningLoop adapts thresholds from feedback, and the heuristic override mechanism guards against false negatives that classical thresholds alone would miss. This integration distinguishes QASAMAP from prior works that address individual aspects of predictive maintenance in isolation, advancing the state of the art toward fully autonomous, self-improving intelligent manufacturing maintenance systems.
