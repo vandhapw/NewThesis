@@ -5,7 +5,7 @@ This chapter presents the design, implementation, and evaluation of a multi-agen
 The proposed system follows a layered architecture comprising four principal tiers: (i) a data ingestion layer based on Apache Kafka that handles per-minute sensor telemetry from 50+
 industrial machines; (ii) a windowing and dispatch layer that buffers readings into analysis
 windows of configurable size (default: 10 readings per machine) and dispatches complete windows to background worker threads; (iii) a multi-agent cognitive layer consisting of nine specialized agents coordinated by a phased orchestrator; and (iv) a scheduling layer that formulates the maintenance decision as a constrained binary optimization problem solved via both classical and quantum approaches. The overall system architecture is formalized in the following diagram:
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/multi-agent architecture.png}
     \caption{Four-tier architecture of the Multi-Agent System for real-time predictive maintenance.}
@@ -27,7 +27,7 @@ agent pipeline concurrently, ensuring continuous data ingestion regardless of LL
 
 \section{Agent Pipeline: Phased Execution Model}
 The multi-agent orchestrator coordinates nine specialized agents through a four-phase execution pipeline. Each phase has explicit data dependencies that determine execution order, while agents within the same phase execute concurrently via thread pools. This section details the agent responsibilities, inter-agent communication protocol, and the phased execution semantics. The nine agents are organized into four functional categories based on their role in the cognitive pipeline as shown in the Table \ref{tab:agent-taxonomy}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Agent taxonomy showing phase assignment, responsibilities, and LLM model routing.}
 \label{tab:agent-taxonomy}
@@ -55,7 +55,7 @@ The multi-agent orchestrator coordinates nine specialized agents through a four-
 \end{table}
 The orchestrator implements a strict execution model where phases represent synchronization
 barriers. All agents within a phase must complete before the next phase begins. Within each phase, agents that share no data dependencies execute concurrently via a ThreadPoolExecutor. This model is formalized as follows:
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Multi-Agent Phased Orchestration}
 \label{alg:multi_agent}
@@ -123,7 +123,7 @@ and non-blocking dispatch strategy.
 The system consumes messages from a Kafka topic where each message represents a single sensor reading with six dimensions: temperature, humidity, vibration, pressure, energy consumption, and mechanical load. The consumer implements a per-machine windowing
 mechanism that buffers exactly W=10 consecutive readings before dispatching a complete window
 to the agent pipeline:
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Non-Blocking Windowed Stream Processing}
 \label{alg:stream_processing}
@@ -150,7 +150,7 @@ worker threads operate concurrently. The choice of W=10 represents a design trad
 
 \subsection{Sensor Data Model and Constraint Space}
 Each sensor reading is modeled as a 6-dimensional vector $x_t$ = [T, H, V, P, E, L] representing temperature, humidity, vibration, pressure, energy, and load at time t. The constraint space C defines operational envelopes for each dimension:
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Sensor constraint space defining operational envelopes for anomaly classification}
 \label{tab:sensor-model-constraint}
@@ -193,7 +193,7 @@ Priority levels are assigned categorically: CRITICAL (P >= 100), HIGH (P >= 60),
 
 \section{Comparative Analysis: Multi-Agent vs Monolithic Architecture}
 To demonstrate the effectiveness of the proposed multi-agent architecture, we present a systematic comparison against a monolithic (non-agent) baseline. The monolithic system processes the same sensor data using a single LLM call with a combined prompt that encompasses all reasoning tasks (monitoring, diagnosis, planning, and scheduling) in one invocation. Both systems were evaluated on identical input data comprising 500 sensor windows from 50 machines over 10 hours of simulated operation. The evaluation metrics include: decision quality (measured by scheduling cost optimality gap against MILP), processing throughput (windows processed per minute), fault detection rate (F1 score for known anomaly patterns), and explanation quality (assessed by domain experts on a 1-5 Likert scale). The monolithic baseline uses a single DeepSeek-v4-Pro call with a comprehensive prompt containing all constraints, while the multiagent system distributes reasoning across nine specialized agents with dedicated prompts.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Comparative Evaluation of Multi-Agent vs.\ Monolithic Architecture}
 \label{tab:multi_vs_mono}

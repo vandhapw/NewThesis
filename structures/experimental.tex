@@ -9,7 +9,7 @@ The experimental evaluation is organized into four distinct components: (1) spat
 \section{Sensor and Target Variable Summary}
 
 The five continuous sensor channels exhibit the statistical profiles summarized in Table~\ref{tab:sensor_stats}. Temperature is the most discriminative sensor for anomaly detection, with a mean of 75.02\textdegree C and a Pearson correlation of $r = 0.447$ with the anomaly flag. Vibration shows a 19\% elevation in anomalous readings (mean 58.51) compared to normal readings (mean 49.18) and is the primary indicator of the Vibration Issue failure type. Humidity exhibits near-zero linear correlation with anomaly occurrence, contributing to fault detection through nonlinear interaction effects captured by the deep learning layers. Pressure and energy consumption similarly show weak linear correlations with anomaly occurrence but contribute to the detection of Pressure Drop and Electrical Fault failure types respectively.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Descriptive Statistics of Sensor Variables ($n = 100{,}000$)}
 \label{tab:sensor_stats}
@@ -26,7 +26,7 @@ Energy (kWh)      & 0.50   & 5.00   & 2.75   & 1.30  & $\approx 0.006$ \\
 \end{tabular}
 \end{table}
 The target variable distributions are summarized in Table~\ref{tab:target_stats}. The binary anomaly flag shows an 8.92\% positive rate, which is characteristic of real industrial anomaly detection problems and drives the choice of F1-score as the primary evaluation metric. The failure type variable exhibits severe class imbalance, with Normal operation constituting 91.90\% of readings. The predicted remaining useful life (RUL) variable follows a near-uniform distribution across the range 1--499 hours, with 16,333 critical readings below 50 hours and 1,637 readings below 10 hours representing machines on the verge of imminent failure.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Target Variable Distributions}
 \label{tab:target_stats}
@@ -70,7 +70,7 @@ The first experimental component evaluates spatiotemporal sensor forecasting per
 \subsection{Cross-Correlation Graph Analysis and Anchor Node Selection}
 
 The T-GCN spatial backbone is constructed from pairwise lagged cross-correlations of the temperature time series across all 50 machines. For each ordered machine pair $(m_i, m_j)$, the \texttt{compute\_machine\_lag\_matrix} function computes the Pearson correlation at integer lags $\tau \in \{-10, -9, \ldots, +10\}$ timesteps, recording the lag and strength at maximum absolute correlation. A directed edge $e_{ij}$ with weight $s_{ij} = |\rho_{ij}(\tau^*)|$ is added to the graph if and only if $s_{ij} > 0.35$. This threshold was chosen to retain only statistically meaningful directional influences while filtering out weak, noise-driven correlations. The resulting directed weighted graph comprises 50 nodes and 538 directed edges, yielding an average out-degree of $538/50 = 10.76$ connections per machine.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/images/cross-correlation-strength-matrix.png}
     \caption{Cross-correlation strength matrix for the temperature time series across the first 20 machines. Each cell $(i,j)$ encodes the absolute Pearson correlation at the lag of maximum absolute correlation. Darker cells indicate stronger directional coupling. Machine pairs with $|r| > 0.35$ are retained as directed edges in the T-GCN adjacency graph.}
@@ -81,7 +81,7 @@ Figure~\ref{fig:cc_matrix_exp} visualises the cross-correlation strength matrix 
 \textbf{Anchor node selection.} The anchor node is the machine with the highest out-degree centrality in the cross-correlation graph, defined as $d^+_i = \sum_j A_{ij}$, where $A$ is the unnormalised adjacency matrix. Machine~40 achieved the highest out-degree centrality ($d^+_{40} = 17$), meaning it exerts direct directional influence on 17 other machines---more than any other node in the graph. This makes Machine~40 the natural choice as the propagation source: perturbations originating at Machine~40 have the widest reach across the machine pool, and monitoring Machine~40 provides early warning signals for the largest dependent subgraph.
 
 Table~\ref{tab:centrality_ranking} presents the top five machines ranked by out-degree centrality (influencers) and the top five ranked by in-degree centrality (dependents). The influencer set {26, 38, 42, 47, 14} represents machines whose temperature dynamics predictably lead other machines, while the dependent set {29, 40, 28, 8, 16} represents machines whose temperature is most strongly predicted by upstream influencers.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Top Machines by Graph Centrality (Cross-Correlation Adjacency)}
 \label{tab:centrality_ranking}
@@ -108,7 +108,7 @@ Table~\ref{tab:centrality_ranking} presents the top five machines ranked by out-
 \end{tabular}
 \end{table}
 Machine~40 appears in both tables (out-degree rank 1 and in-degree rank 2), indicating that it is not only the most influential source of thermal propagation but also strongly influenced by other machines. This bidirectional connectivity makes Machine~40 a \emph{hub node} in the machine correlation network: it both drives and responds to thermal dynamics across the factory floor. The \texttt{propagate\_from\_anchor} function exploits this hub property by injecting synthetic anomalies at Machine~40 and observing their propagation to the 17 dependent machines, validating the graph's predictive structure.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-source-graph-simulation.png}
     \caption{Multi-source graph simulation demonstrating cross-machine propagation via the T-GCN adjacency graph. Source machines (Machine~40, 27, 14, dashed lines) drive dependent machines (Machine~1, 50, 32, solid lines) through the cross-correlation edges. The simulation shows coherent oscillation propagation during normal operation (steps 0--50) followed by joint collapse at step~50, validating the \texttt{propagate\_from\_anchor} mechanism for anomaly-driven machine-wide prediction.}
@@ -119,7 +119,7 @@ Machine~40 appears in both tables (out-degree rank 1 and in-degree rank 2), indi
 Beyond static graph analysis, the T-GCN enables a practical deployment scenario in which Machine~40---equipped with a fully active sensor suite---serves as the sole anchor data source for the entire machine pool. In this configuration, the \texttt{AnchorBufferManager} ingests the continuous five-channel sensor stream from Machine~40 and maintains a sliding window of the most recent readings. When a dependent machine lacks a complete sensor set (e.g., missing humidity or pressure due to instrumentation cost or sensor failure), the T-GCN does not treat that machine as isolated; instead, it propagates Machine~40's encoded spatial embedding through the graph convolution layers along the outgoing edges of the adjacency graph. The resulting dependent-machine prediction is therefore a \emph{graph-influenced} forecast that blends the machine's own partial observations with the anchor's thermal and mechanical state transmitted through the learned cross-correlation structure.
 
 Figure~\ref{fig:anchor_workflow} illustrates this workflow. Machine~40's live sensor stream enters the \texttt{AnchorBufferManager}, which handles missing samples by imputing from the T-GCN's previous prediction. The buffered window is fed into the T-GCN's Graph Convolution layers, where the normalised adjacency matrix $\hat{A}$ propagates the anchor's spatial embedding to all 17 dependent machines. Each dependent machine receives a weighted mixture of its own (possibly partial) input and the anchor's propagated state, producing a next-step forecast that reflects both local and fleet-wide dynamics. A $+20\%$ temperature spike at Machine~40, for example, triggers a propagated perturbation $w \cdot \epsilon$ (with edge weight $w$ and damping factor $\epsilon = 0.02$) at every dependent machine, causing their predicted temperature values to rise proportionally even before their own local sensors register the change.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
 \centering
 \begin{minipage}{0.95\textwidth}
 \small
@@ -162,7 +162,7 @@ Workflow: 1 sensor aktif di Machine 40 -> AnchorBufferManager -> T-GCN Graph
 This anchor-driven design has two immediate operational benefits. First, it reduces the minimum sensor instrumentation required for fleet-wide predictive maintenance: only Machine~40 needs a complete, high-reliability sensor suite, while dependents can operate with cheaper, partial instrumentation. Second, it enables early-warning propagation: because the graph encodes lagged thermal and mechanical influence relationships, an anomaly detected at Machine~40 generates predictive alerts for dependent machines before their own local sensors cross warning thresholds. The \texttt{propagate\_from\_anchor} function formalises this behaviour by injecting synthetic perturbations at the anchor and measuring their graph-mediated impact, confirming that the cross-correlation adjacency structure captures real, operationally relevant cross-machine dynamics.
 
 The per-feature forecasting results across the five sensor channels and all three models are presented in Table~\ref{tab:forecasting_results}. Summary performance metrics and training times are presented in Table~\ref{tab:forecasting_summary}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Per-Feature Forecasting Results: MSE, RMSE, MAE, and R\textsuperscript{2} for Each Model and Sensor}
 \label{tab:forecasting_results}
@@ -195,7 +195,7 @@ The per-feature forecasting results across the five sensor channels and all thre
 \end{tabular}%
 }
 \end{table}
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Forecasting Model Summary: Average Metrics and Training Time}
 \label{tab:forecasting_summary}
@@ -217,7 +217,7 @@ Although the T-GCN requires a longer training time (111.28 seconds vs.\ 52.56 se
 
 \paragraph{Model Performance Comparison.}
 Figure~\ref{fig:model_performance} presents a four-panel performance summary comparing the three forecasting architectures across R\textsuperscript{2} per feature, MSE per feature, aggregate metrics, and training loss convergence. The top-left panel confirms T-GCN's consistent R\textsuperscript{2} advantage across all seven sensor channels, with the most pronounced improvements observed for vibration (R\textsuperscript{2}: 0.594 vs.\ 0.574 for LSTM) and energy consumption (R\textsuperscript{2}: 0.658 vs.\ 0.552 for LSTM). The engineered features \texttt{temp\_vibe\_id} and \texttt{press\_energy} show competitive R\textsuperscript{2} scores near 0.7--0.8 across all models, confirming that domain-driven feature construction provides useful complementary predictive signals. The top-right MSE panel highlights that the \texttt{temp\_vibe\_id} feature dominates absolute error magnitude due to its large numerical scale (product of temperature and vibration values), while all other sensor channels produce near-zero MSE on the visible scale. The bottom-left aggregate metrics panel clearly shows T-GCN achieving the highest average R\textsuperscript{2} ($\approx$0.77), with the Hybrid LSTM-GCN intermediate ($\approx$0.71) and the standalone LSTM lowest ($\approx$0.69). The bottom-right training loss convergence panel is particularly informative: T-GCN converges most rapidly, dropping steeply between epochs 0 and 4 and stabilising at a final loss of $\approx$0.024, substantially below the OptimizedLSTM final loss of $\approx$0.031 and the Hybrid LSTM-GCN loss of $\approx$0.028. This rapid convergence reflects the graph convolution layers' ability to immediately leverage cross-machine spatial structure from epoch 1, in contrast to the purely temporal LSTM that must build up temporal representations more gradually.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
     \caption{Four-panel model performance comparison: (top-left) R\textsuperscript{2} score per sensor feature for all three architectures; (top-right) MSE per feature on log scale; (bottom-left) aggregate average R\textsuperscript{2}, inverse MSE, and inverse MAE; (bottom-right) training loss convergence over 15 epochs. T-GCN (CC-Adj, gold) consistently outperforms both the OptimizedLSTM (teal) and Hybrid LSTM-GCN (magenta) baselines and achieves the fastest convergence to the lowest final training loss.}
@@ -225,7 +225,7 @@ Figure~\ref{fig:model_performance} presents a four-panel performance summary com
 \end{figure}
 \paragraph{Multi-Horizon Autoregressive Prediction.}
 Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the autoregressive rollout prediction performance across 10 forecast horizon steps for four sensor channels (temperature, vibration, humidity, pressure) and all three models. Each subplot overlays the actual sensor trajectory (solid black line), the model's predicted trajectory (dashed coloured line), and a shaded $\pm 1\sigma$ uncertainty band computed across multiple starting windows. Several observations are noteworthy. First, all three models track the actual temperature and vibration trajectories closely at short horizons (steps 1--3), with divergence increasing beyond step 5 as autoregressive error accumulates. Second, the T-GCN uncertainty bands (gold shading) are generally narrower than those of the OptimizedLSTM (blue shading) for the humidity and pressure channels, indicating more consistent multi-step predictions across different starting windows. Third, the humidity channel shows the strongest overall predictive accuracy across all models, consistent with its highest individual R\textsuperscript{2} scores in the per-feature benchmark. The pressure channel exhibits the largest $\pm 1\sigma$ spread, reflecting the setpoint-driven dynamics that resist smooth autoregressive rollout by all architectures.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-horizon-per-model-feature.png}
     \caption{Multi-horizon autoregressive rollout predictions for four sensor channels (rows: temperature, vibration, humidity, pressure) across three models (columns: OptimizedLSTM, T-GCN CC-Adj, Hybrid LSTM-GCN). Solid black line: actual values; dashed coloured line: predicted values; shaded band: $\pm 1\sigma$ uncertainty across starting windows. T-GCN consistently maintains tighter uncertainty bands and closer tracking of actual trajectories, particularly for humidity and pressure, demonstrating superior multi-step robustness compared to baseline architectures.}
@@ -233,7 +233,7 @@ Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the au
 \end{figure}
 \paragraph{Horizon MAE Degradation Curve.}
 Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a function of prediction horizon. The four subplots present MAE vs.\ horizon step (1--10) for temperature, vibration, humidity, and pressure respectively. A clear pattern of non-monotonic MAE growth is observed across all channels: MAE does not increase uniformly with horizon but instead exhibits local peaks at steps 4--6, followed by partial recovery at longer horizons. This non-monotonic pattern reflects the semi-periodic nature of the sensor dynamics, where the model's autoregressive predictions re-synchronise with the actual trajectory as it returns to its mean. T-GCN consistently achieves the lowest MAE at almost every horizon step across all four channels, with the margin over the LSTM baseline widening at the critical medium-range horizons (steps 5--8) that are most operationally relevant for predictive maintenance scheduling. The vibration channel shows the highest absolute MAE values (ranging from approximately 1.2 to 2.0 across models), confirming it as the most difficult channel for multi-step forecasting, while humidity achieves the lowest MAE despite its wide dynamic range.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/horizon-mae-degradation-curve.png}
     \caption{Horizon MAE Degradation Curves showing forecast error accumulation over 10 prediction steps for temperature, vibration, humidity, and pressure channels. All three models exhibit non-monotonic MAE growth reflecting sensor periodicity. T-GCN (CC-Adj, gold) consistently achieves the lowest MAE at most horizon steps, with the advantage most pronounced at medium horizons (steps 5--8) that are most critical for maintenance decision scheduling.}
@@ -244,7 +244,7 @@ The cross-correlation graph propagation mechanism is further validated through t
 
 \paragraph{Prediction versus Actual Sample Comparison.}
 Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versus actual sensor trajectories over 200 test samples for temperature, vibration, humidity, and pressure, with per-model R\textsuperscript{2} values annotated in each panel legend. The T-GCN (CC-Adj) achieves the highest R\textsuperscript{2} across all four channels: temperature (0.734), vibration (0.870), humidity (0.740), and pressure (0.768), compared to the OptimizedLSTM (0.668, 0.829, 0.610, 0.644) and Hybrid LSTM-GCN (0.682, 0.844, 0.645, 0.685). All three models track the actual sensor trajectories closely at short time scales, with prediction lines tightly clustered around the actual black line for the majority of samples. The largest deviations occur at sharp inflection points --- particularly visible in the temperature and humidity panels around samples 75 and 175 --- where rapid sensor transitions challenge autoregressive prediction. The vibration channel shows the tightest prediction-actual agreement across all models (all R\textsuperscript{2} $> 0.82$), consistent with its relatively smooth, quasi-periodic dynamics. These sample comparison plots confirm that the quantitative R\textsuperscript{2} values reported in Tables~\ref{tab:forecasting_results} and~\ref{tab:forecasting_summary} correspond to visually meaningful predictive accuracy that would support reliable real-time streaming inference in the QASAMAP pipeline.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/prediction-vs-actual.png}
     \caption{Prediction vs.\ Actual sample comparison for 200 test samples across temperature, vibration, humidity, and pressure channels. Each panel overlays actual values (solid black) with predictions from OptimizedLSTM, T-GCN (CC-Adj), and Hybrid LSTM-GCN. Per-model R\textsuperscript{2} values are annotated in each legend. T-GCN consistently achieves the closest alignment with actual trajectories and the highest R\textsuperscript{2} across all four sensor channels.}
@@ -361,7 +361,7 @@ The second experimental component evaluates machine health classification and re
 \subsection{Classification Results}
 
 \paragraph{Machine Status Classification.} The machine status classification task involves predicting the three-class machine operating state (Running, Warning, Stopped) from the sensor feature set. Results are presented in Table~\ref{tab:cls_machine_status}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Machine Status Classification Results (3-Class)}
 \label{tab:cls_machine_status}
@@ -378,7 +378,7 @@ TabNet               & 0.7717 & 0.7587 & 0.7444 & 0.6623 & 0.8538 & 0.5994 \\
 \end{tabular}
 \end{table}
 \paragraph{Anomaly Flag Classification.} The anomaly flag binary classification task predicts whether a given sensor reading corresponds to an anomalous machine state. Results are presented in Table~\ref{tab:cls_anomaly_flag}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Anomaly Flag Classification Results (Binary)}
 \label{tab:cls_anomaly_flag}
@@ -395,7 +395,7 @@ TabNet               & 0.9981 & 0.9981 & 0.9981 & 0.9981 & 0.9993 & 0.9942 \\
 \end{tabular}
 \end{table}
 \paragraph{Failure Type Classification.} The failure type multi-class classification task predicts one of five failure categories from the sensor feature set. This is the most challenging classification task due to severe class imbalance. Results are presented in Table~\ref{tab:cls_failure_type}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Failure Type Classification Results (5-Class, Macro-Averaged)}
 \label{tab:cls_failure_type}
@@ -412,7 +412,7 @@ TabNet               & 0.8940 & 0.8527 & 0.8330 & 0.8421 & 0.9797 & 0.8149 \\
 \end{tabular}
 \end{table}
 \paragraph{Downtime Risk Classification.} The downtime risk binary classification task predicts whether a machine reading is associated with a high downtime risk. Results are presented in Table~\ref{tab:cls_downtime_risk}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Downtime Risk Classification Results (Binary)}
 \label{tab:cls_downtime_risk}
@@ -429,7 +429,7 @@ TabNet               & 0.9981 & 0.9981 & 0.9981 & 0.9981 & 0.9993 & 0.9942 \\
 \end{tabular}
 \end{table}
 \paragraph{Maintenance Required Classification.} The maintenance required binary classification task predicts whether a machine requires maintenance based on the current sensor reading. Results are presented in Table~\ref{tab:cls_maintenance}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Maintenance Required Classification Results (Binary)}
 \label{tab:cls_maintenance}
@@ -448,7 +448,7 @@ TabNet               & 0.8654 & 0.8602 & 0.8542 & 0.8407 & 0.9298 & 0.7040 \\
 \subsection{Regression Results: Predicted Remaining Useful Life}
 
 The regression task involves predicting the continuous Remaining Useful Life (RUL) value in hours from the sensor feature set. This is the most challenging task in the supervised learning experiment owing to the near-uniform RUL distribution and the complex, multi-factor RUL dynamics across different failure modes. Results are presented in Table~\ref{tab:reg_rul}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{RUL Regression Results}
 \label{tab:reg_rul}
@@ -469,7 +469,7 @@ The uniformly low R\textsuperscript{2} values (0.12--0.19) across all five model
 \subsection{Best Model Summary}
 
 The best-performing model for each target, along with the key performance metric, is summarized in Table~\ref{tab:best_models}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Best Performing Model per Target Variable}
 \label{tab:best_models}

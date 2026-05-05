@@ -3,7 +3,7 @@
 The third experimental component evaluates the multi-agent pipeline without quantum-inspired heuristic enhancement. The pipeline processes 11 sensor events across 7 machines (M-1, M-2, M-3, M-4, M-32, M-40, M-47), orchestrated by the \texttt{glm-5.1:cloud} model via the Ollama Cloud API. The LLM benchmark (\S\ref{sec:llm_benchmark}) additionally evaluates \texttt{qwen3.5:397b-cloud} and \texttt{deepseek-v4-pro:cloud}.
 
 In this configuration, all nine LLM agents (Monitoring, Diagnosis, Planning, Reporting, Correlation, Explainability, Self-Reflection, Scheduling, and Pattern Learning) base their decisions exclusively on classical risk scores computed by the \texttt{ReasoningEngine}, which applies static sensor thresholds and a composite risk formula derived from the training split (even machine IDs). \textbf{Post-audit safeguard:} No ground-truth fields (\texttt{status}, \texttt{failure\_type}) are passed to any LLM agent prompt; the LLM reasons only from sensor values and derived bounds. Table~\ref{tab:agentic_decisions_nonquantum} shows the per-machine decisions and risk assessments produced by the non-quantum agentic pipeline.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Per-Machine Decisions: Agentic AI Only (No Quantum)}
 \label{tab:agentic_decisions_nonquantum}
@@ -34,7 +34,7 @@ The QUBO local search with minimum energy $-0.5144$ selects Machine~32 as the hi
 \section{Per-Machine Decision Comparison}
 
 Table~\ref{tab:per_machine_comparison} presents the per-machine decision outcomes across all three pipeline configurations, directly demonstrating the value of the heuristic override mechanism. In the heuristic-augmented pipeline, six of the seven machines receive active maintenance actions, compared to one in the non-augmented agentic pipeline and zero in the traditional rule-based system.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Per-Machine Decision Comparison Across All Three Approaches}
 \label{tab:per_machine_comparison}
@@ -59,7 +59,7 @@ The central result of the QASAMAP experimental evaluation is a rigorous post-aud
 \subsection{Held-Out Test Split (25 Machines)}
 
 Table~\ref{tab:post_audit_test} presents the post-audit detection performance on the held-out test split. The Rule-Based and AgenticAI approaches both achieve F1=0.00 because their conservative static thresholds fail to generalise to the subtle anomaly patterns in the test set. The Fleet-Relative detector (machine-centred median deviation) achieves F1=0.30, and the Sliding-Window detector (temporal context) achieves F1=0.48, establishing stronger baselines for future work.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Post-Audit Comparative Detection Performance (25 Held-Out Test Machines)}
 \label{tab:post_audit_test}
@@ -77,7 +77,7 @@ Sliding-Window & 5 & 6  & 5  & 9  & 0.45 & 0.50 & 0.48 & 0.56 \\
 \subsection{Full-Dataset Eight-Model Comparison}
 
 Table~\ref{tab:full_comparison} reports the full 50-machine comparison including all neural baselines. The neural models (Transformer, LSTM, GNN, RL-QLearn, FedLearn, TransferL) achieve F1 scores of 0.73--0.76 but produce \textbf{zero true negatives} (TN=0 or TN=1), indicating systematic over-prediction in which nearly every machine is classified as anomalous. By contrast, the AgenticAI pipeline achieves perfect precision (1.00) but very low recall (0.20), yielding F1=0.33 and correctly identifying 20 true negatives while missing 24 failures.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Full Eight-Model Comparison (50 Machines, Pre-Audit / Full-Dataset Run)}
 \label{tab:full_comparison}
@@ -99,7 +99,7 @@ AgenticAI  & 6  & 0  & 24 & 20 & 1.00 & 0.20 & 0.33 & 0.52 \\
 \subsection{Execution Time and Latency}
 
 Table~\ref{tab:execution_time} quantifies the computational cost of each approach. Neural baselines complete prediction in milliseconds, whereas the AgenticAI pipeline requires 5,771.8~seconds ($\approx$1.6~hours) for a single prediction cycle due to nine sequential LLM API calls per machine event. This latency is a critical deployment consideration discussed in the following sections.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Execution Time Comparison (Seconds)}
 \label{tab:execution_time}
@@ -122,7 +122,7 @@ AgenticAI  & 0.000 & 5771.824 & 5771.824 \\
 \label{sec:llm_benchmark}
 
 Table~\ref{tab:llm_benchmark} summarises the LLM benchmark (270 calls: 3 models $\times$ 6 agents $\times$ 5 machines $\times$ 3 runs). Qwen3.5 achieves the highest JSON parse rate (82.2\%), schema compliance (82.2\%), and reasoning quality (84.8\%), but at the highest latency (70.8~s average, 248.7~s p95). DeepSeek-V4 offers the fastest average latency (20.8~s) and best quality-per-dollar (23.2). The Reporting Agent consistently fails JSON parsing (0\% JSON rate across all models), emitting free-text instead of structured output and limiting downstream automation.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{LLM Benchmark --- Overall Model Comparison}
 \label{tab:llm_benchmark}
@@ -144,7 +144,7 @@ Quality per dollar     & 28.4 & 22.4 & 23.2 \\
 \section{System Capability Matrix}
 
 Table~\ref{tab:capability_matrix} summarizes the feature and capability set available to each of the three evaluated approaches, illustrating the progressive enrichment of system capabilities from the traditional rule-based system to the full QASAMAP stack.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{System Capability Matrix Across Three Approaches}
 \label{tab:capability_matrix}

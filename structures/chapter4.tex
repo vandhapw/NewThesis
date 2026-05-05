@@ -1,6 +1,6 @@
 \section{Overview and System Architecture}
 The digital twin framework developed in this research requires a continuous, low-latency stream of sensor data to drive real-time predictive analytics across a manufacturing fleet of 50 heterogeneous machines. This section presents the data ingestion pipeline and the spatio-temporal modelling methodology underpinning the system. The architecture couples a physical Internet of Things (IoT) sensor layer—realised through a Plalion device measuring temperature, humidity, ozone, dust, CO₂, and volatile organic compounds (VOCs)—with a Temporal Graph Convolutional Network (T-GCN) that models the spatial dependencies and temporal dynamics across the machine fleet. The T-GCN framework, originally proposed by Zhao et al. (2020) for traffic forecasting, is adapted here to the manufacturing domain, where machines exhibit non-trivial cross-correlation structures arising from shared production workflows, thermal coupling, and power-line transients. The end-to-end pipeline is illustrated in Figure \ref{fig:dt-sensors}.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/DT sensors.png}
     \caption{Three-tier system architecture for real-time data ingestion,
@@ -11,7 +11,7 @@ The architecture is containerized using Docker and deployed on an Ubuntu 22.04 L
 
 \section{Real-Time Sensor Data Ingestion}
 Physical active sensor is performed by a environmental sensor, deployed within the manufacturing environment. The device exposes a REST API endpoint returning a JSON payload containing seven environmental parameters at a 10-second polling interval. The Kafka bridge, implemented as a Python producer container, executes the following loop:
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \caption{Active Sensor to Kafka Ingestion Loop}
 \label{alg:plalion_kafka}
 \begin{algorithmic}[1]
@@ -46,7 +46,7 @@ Physical active sensor is performed by a environmental sensor, deployed within t
 \end{algorithmic}
 \end{algorithm}
 The Kafka topic is configured with three partitions and replication factor 1, appropriate for a single-node deployment. The producer enforces `acks='all'`, requiring acknowledgment from all in-sync replicas before considering a write committed—this trades marginal throughput for guaranteed durability, which is critical for audit trails in manufacturing compliance contexts.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Kafka Message Schema - Raw Sensor Data}
 \label{tab:kafka_schema}
@@ -126,7 +126,7 @@ The adjacency matrix is not imposed a priori but is learned from historical oper
 r_{ij}(\tau) = \mathrm{corr}\bigl(X_i(t),\, X_j(t + \tau)\bigr)
 \end{equation}
 The optimal lag $\tau_{ij}^* = \arg\max_{\tau}\, \lvert r_{ij}(\tau) \rvert$ identifies the temporal offset at which the two machines' temperature signals exhibit maximal correlation. An edge is established if $\lvert r_{ij}(\tau_{ij}^*) \rvert \geq \theta_{\text{CC}} = 0.35$, with the edge weight defined as the absolute correlation coefficient. The directionality of the temporal graph is determined by the sign of the optimal lag: if $\tau_{ij}^* > 0$, machine $i$ leads machine $j$, and a directed edge $i \rightarrow j$ is created; conversely, for $\tau_{ij}^* < 0$, the direction is reversed.
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Build Temporal Graph via Cross-Correlation Analysis}
 \label{alg:temporal_graph}
@@ -170,7 +170,7 @@ The optimal lag $\tau_{ij}^* = \arg\max_{\tau}\, \lvert r_{ij}(\tau) \rvert$ ide
 \end{algorithmic}
 \end{algorithm}
 The resulting adjacency structure for the 50-machine fleet reveals several significant properties, summarized in Table \ref{tab:graph-structural}.
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Graph Structural Properties}
 \label{tab:graph-structural}
@@ -194,7 +194,7 @@ Self-loop weight            & 1.0            & Preserved for numerical stability
 \end{table}
 \section{T-GCN Model Architecture}
 The T-GCN architecture employed in this work comprises three stacked components, as illustrated in Figure \ref{fig:tgcn-flowchart}.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/tgcn flowchart.png}
     \caption{T-GCN architecture. At each timestep t, GCN layers aggregate
@@ -231,7 +231,7 @@ A two-layer fully connected network maps the final hidden state $\mathbf{c}_T$ t
 where $\hat{\mathbf{y}} \in \mathbb{R}^{7}$ denotes the predicted feature vector at the next timestep.
 
 
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Model Hyperparameters and Training Configuration}
 \label{tab:tgcn_hyperparams}
@@ -267,7 +267,7 @@ The model is trained in a fleet-pooled manner: all machines training sequences a
 
 \subsection{Training and Inference Procedure}
 Training proceeds via standard mini-batch gradient descent with the Adam optimizer. The dataset is partitioned into an 80\%/20\% train/test split chronologically within each machine's sequence to preserve temporal ordering. Algorithm \ref{alg:train_tgcn} formalises the training loop.
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Training Procedure for Temporal Graph Convolutional Network (T-GCN)}
 \label{alg:train_tgcn}
@@ -328,7 +328,7 @@ x_{\text{mfg}} &= z_{\text{env}} \cdot \sigma_{\text{mfg}} + \mu_{\text{mfg}},
 \end{align}
 
 where $\mu_{\text{env}}$ and $\sigma_{\text{env}}$ denote the mean and standard deviation computed online from a rolling buffer of the most recent $100$ sensor readings, while $\mu_{\text{mfg}}$ and $\sigma_{\text{mfg}}$ are fixed parameters estimated from historical manufacturing data.
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Sensor Alignment via Z-score Distribution Mapping}
 \label{alg:sensor_aligner}
@@ -380,7 +380,7 @@ The influence is further modulated by an exponential distance decay:
 Machines that are topologically closer to the anchor (Machine 40) receive stronger coupling, reflecting the physical intuition that adjacent machines share thermal environments and vibration pathways more strongly than distant ones.
 
 Finally, each machine independently performs node-specific forecasting via the T-GCN, with an additional $\pm 1\%$ stochastic perturbation applied to the raw features to prevent degenerate convergence (i.e., identical trajectories across machines), thereby preserving realism in the digital twin simulation.
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Propagation of Anchor Prediction to Fleet}
 \label{alg:propagate_fleet}
@@ -411,7 +411,7 @@ Finally, each machine independently performs node-specific forecasting via the T
 \end{algorithm}
 \subsection{Real-Time Simulation Loop}
 The complete real-time simulation cycle integrates all components in a 60-second loop, as depicted in the sequence diagram of Figure \ref{fig:sequence-diagram}.
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/sequence diagram sensor (2).png}
     \caption{Sequence diagram of one 60-second simulation cycle}

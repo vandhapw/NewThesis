@@ -152,7 +152,7 @@ The penalty weights are then set as:
 
 The factor of 3 in $\lambda_{\text{assign}}$ ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Build QUBO Matrix for Scheduling}
 \label{alg:build_qubo}
@@ -248,7 +248,7 @@ G &= \max\!\left(200,\; \min\!\left(400,\; n_{\text{bits}}\right)\right).
 
 This prevents both under-exploration for large problems and wasteful computation for small ones.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
 \label{alg:qiea}
@@ -352,7 +352,7 @@ The key distinction between SQA and classical simulated annealing lies in the in
 \subsection{QAOA with XY Ring Mixer}
 The Quantum Approximate Optimization Algorithm (Farhi et al., 2014) constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al. (2019), we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{QAOA with XY Mixer for Scheduling}
 \label{alg:qaoa_xy}
@@ -421,7 +421,7 @@ The Quantum Approximate Optimization Algorithm (Farhi et al., 2014) constructs a
 
 The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
 
-\begin{algorithm}[htbp]
+\begin{algorithm}[!htbp]
 \small
 \caption{QAOA Hardware Execution Pipeline}
 \label{alg:qaoa_hardware}
@@ -486,7 +486,7 @@ The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (
 Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class (Brandao et al., 2018). The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
 Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 machines, T = 4 time options), showing the initial X-gate preparation, alternating problem unitary (RZ/RZZ) and XY ring mixer layers, and final measurement. Each machine's qubits form an independent block within the mixer, preserving one-hot feasibility.
 
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/fig7_qaoa_circuit.png}
     \caption{QAOA circuit architecture for a minimal scheduling instance ($N=2$, $T=4$), showing alternating problem unitary and XY ring mixer layers with final measurement.}
@@ -550,7 +550,7 @@ This metric is directly comparable across MILP, quantum-inspired, and quantum me
 \subsection{Unified Benchmark (N = 3 - 100}
 Table 1 presents results from the unified benchmark comparing all methods on the same problem instances.
 
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Unified Benchmark Results}
 \label{tab:benchmark}
@@ -581,7 +581,7 @@ Dashes (---) indicate that the method was not executed at that scale.}
 
 At N = 3, both QIEA and QAOA/sim achieve the exact MILP optimum (gap = 0.0\%), validating the correctness of the QUBO formulation and solver implementations. For larger instances, QAOA simulation becomes infeasible due to $O(2^n)$ memory requirements, while QIEA remains tractable with gaps of 63-80\%. Figure 3 visualizes this comparison across all methods.
 
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/fig3_unified_benchmark.png}
     \caption{Unified Benchmark - All Methods Comparison.}
@@ -592,7 +592,7 @@ At N = 3, both QIEA and QAOA/sim achieve the exact MILP optimum (gap = 0.0\%), v
 
 Table \ref{tab:scaling} presents the extended scaling study comparing MILP, QIEA, and SQA across larger problem instances.
 
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Scaling benchmark comparing MILP, QIEA, and SQA across fleet sizes $N=5$ to $N=30$.}
 \label{tab:scaling}
@@ -621,7 +621,7 @@ c c c c c c c
 
 \end{table}
 
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
 
     \begin{subfigure}[t]{0.48\textwidth}
@@ -644,7 +644,7 @@ c c c c c c c
 
 The per-machine average cost reveals an important trend:
 
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Per-Machine Cost Comparison (MILP vs QIEA)}
 \label{tab:per_machine}
@@ -669,7 +669,7 @@ c c c c
 
 \end{table}
 
-\begin{figure}[htbp]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/fig6_per_machine_cost.png}
     \caption{Per-machine average cost comparison between MILP optimal baseline and QIEA heuristic across fleet sizes $N=5$ to $N=30$.}
