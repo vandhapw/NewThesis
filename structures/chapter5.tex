@@ -225,16 +225,13 @@ Token consumption / call    & $\sim$18K tokens (distributed)   & $\sim$12K token
 \end{tabularx}
 \end{table}
 \FloatBarrier
-The multi-agent architecture demonstrates superior performance across all quality metrics despite higher token consumption. The most significant advantages are:
-\textbf{Constraint Satisfaction}: The 100\% constraint satisfaction rate of the multi-agent system is guaranteed by the formal constraints engine that validates all scheduling decisions before output. The monolithic system achieves only 82\% because LLMs are known to inconsistently enforce hard constraints \cite{liu} (Liu et al., 2023), particularly capacity limits that require global counting across all machines.
-\textbf{Throughput: }The 3x throughput improvement (12 vs. 4 windows/min) results from intra-phase parallelism. In Phase 1, three agents execute concurrently; in Phases 3 and 4, two agents each execute in parallel. The monolithic system processes sequentially since all reasoning is in a single LLM call that cannot be parallelized.
-\textbf{Fault Tolerance:} When an individual agent fails (e.g., LLM timeout), the orchestrator captures the error and proceeds with available results. The pipeline produces degraded but usable output (e.g., scheduling without correlation analysis). The monolithic system experiences complete failure on any LLM error, requiring full retry.
+The multi-agent architecture wins on every quality metric despite higher tokens. \textbf{Constraint satisfaction} is $100\%$ via the formal engine that validates schedules before output; the monolithic baseline reaches only $82\%$ because LLMs inconsistently enforce hard constraints \cite{liu} that require global counting. \textbf{Throughput} ($3\times$, $12$ vs $4$ windows/min) comes from intra-phase parallelism — three concurrent agents in Phase~1 plus two in Phases~3 and~4 — that the monolithic single LLM call cannot exploit. \textbf{Fault tolerance}: agent-level failures degrade gracefully (e.g.\ skip correlation analysis) whereas any monolithic LLM error forces full retry.
 
 \section{End-to-End Streaming Validation on 50 Machines}
-To verify that the orchestrator scales to a realistic fleet size and to characterise the handover from the cognitive layer to the scheduling layer, the full streaming pipeline was executed on $N=50$ simulated machines, each fed 60 sensor readings split into 5 analysis windows of 10 readings. The constraints engine, priority computation, and routing to the scheduling solver are exactly those described in Sections~5.3 and~5.4; no agent-side parameter was retuned for this experiment.
+The full streaming pipeline was run on $N=50$ machines (each $60$ readings $=$ $5$ windows of $10$) using the same constraints engine, priorities, and routing as Sections~5.3--5.4 with no parameter retuning.
 
 \subsection{Streaming Outcome Summary}
-Table~\ref{tab:stream50_summary} summarises the cognitive-layer output. After processing 5 windows per machine, the constraints engine flagged 45 of 50 machines as requiring maintenance, all of them at the CRITICAL priority level; the remaining 5 machines were classified LOW and excluded from the scheduling request. The average priority score across the 45 forwarded machines is 144.4, the average health index is 0.479, and the average damage index is 0.438, reflecting the cumulative effect of repeated constraint violations across the 50-reading horizon.
+After $5$ windows per machine, the constraints engine flagged $45$ of $50$ machines as needing maintenance — all CRITICAL — with the remaining $5$ at LOW (excluded from scheduling). Average priority $144.4$, health $0.479$, damage $0.438$, reflecting cumulative violations over the $50$-reading horizon (Table~\ref{tab:stream50_summary}).
 
 \begin{table}[!htbp]
 \centering
@@ -265,7 +262,7 @@ Average damage index                 & 0.438 & moderate cumulative damage accumu
 \FloatBarrier
 
 \subsection{Cognitive-Layer to Scheduling-Layer Handover}
-The 45 forwarded machines define a QUBO instance with $T=19$ time slots (slot size $\approx 3$ hours over the 72-hour horizon) and $n_{\text{bits}} = N_{\text{maint}} \cdot T = 855$ binary decision variables. This is a substantially larger instance than the synthetic benchmarks of Chapter~6 (which top out at $n=390$ for $N=30$). Table~\ref{tab:stream50_solvers} reports the solver outcomes when this instance is handed to the same MILP, QIEA, and SQA solvers used in Chapter~6.
+The $45$ forwarded machines yield a QUBO with $T=19$ slots ($\sim 3$~h each) and $n_{\text{bits}} = 855$ binary variables — substantially larger than the $n=390$ synthetic ceiling at $N=30$ in Chapter~6. Table~\ref{tab:stream50_solvers} reports MILP/QIEA/SQA outcomes on this instance.
 
 \begin{table}[!htbp]
 \centering
@@ -292,6 +289,6 @@ SQA        & ---          & ---         & timeout      & no result returned with
 \end{table}
 \FloatBarrier
 
-The result of this handover is informative for the overall framework: at 50 machines, MILP returns the exact optimal schedule in $\sim$37~ms, comfortably inside the 60-s Kafka cycle budget established in Chapter~4. QIEA terminates in $\sim$12~s with a numerically lower cost ($7{,}958.7$ versus $21{,}455.6$) but the lower cost is itself the symptom of infeasibility: the solver's search has lapsed into a region of the $\{0,1\}^{855}$ space in which the one-hot assignment penalty no longer dominates, so a nominal QUBO energy can be reached without committing every machine to exactly one time slot. SQA does not return a result within its solver budget at this scale. We therefore route the scheduling layer to MILP/CBC by default for $N \geq 30$, while retaining QIEA and SQA for the smaller-fleet regime characterised in Chapter~6.
+At $N=50$, MILP returns the exact optimum in $\sim 37$~ms, comfortably within the 60-s Kafka cycle. QIEA terminates in $\sim 12$~s with a misleadingly lower cost ($7{,}958.7$ vs $21{,}455.6$): the lower number is itself the infeasibility signature — the search drifts into a $\{0,1\}^{855}$ region where the one-hot penalty no longer dominates, so QUBO energy drops without committing every machine. SQA times out. We route scheduling to MILP/CBC by default for $N\geq 30$, retaining QIEA/SQA only for the small-fleet regime of Chapter~6.
 
 This single end-to-end run also serves as an integration test of the multi-agent system: the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) are all exercised in series for 50 machines without manual intervention, establishing that the system as a whole closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
