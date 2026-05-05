@@ -25,6 +25,24 @@
 \usepackage{pifont}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{etoolbox}
+
+% --- List of Equations ---
+\makeatletter
+\newcommand{\listofequations}{%
+  \chapter*{List of Equations}%
+  \@starttoc{loe}%
+}
+\newcommand*{\l@equation}{\@dottedtocline{1}{1.5em}{3em}}
+\makeatother
+
+% Auto-register every numbered equation in the LoE
+\AtEndEnvironment{equation}{%
+  \addcontentsline{loe}{equation}{\protect\numberline{\theequation}}%
+}
+\AtEndEnvironment{align}{%
+  \addcontentsline{loe}{equation}{\protect\numberline{\theequation}}%
+}
 
 % --- Font Setup ---
 % Main font: Shinmyungjo (신명조) for Korean text.

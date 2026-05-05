@@ -578,22 +578,9 @@ Streaming reveals three critical departures from synthetic benchmarks. \textbf{H
     \label{fig:streaming-vs-synthetic}
 \end{figure}
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig10_feasibility_frontier.png}
-    \caption{Feasibility frontier under streaming data: MILP retains feasibility at all tested $N$, while QIEA crosses the infeasibility boundary at $N=8$.}
-    \label{fig:feasibility-frontier}
-\end{figure}
-
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig11_priority_distribution.png}
-    \caption{Machine-priority distribution from real-time streaming data; the all-CRITICAL bias amplifies QUBO penalty weights and steepens the search landscape.}
-    \label{fig:priority-distribution}
-\end{figure}
 \FloatBarrier
 
-Figures~\ref{fig:streaming-vs-synthetic}--\ref{fig:priority-distribution} illustrate these findings. MILP remains the only solver achieving feasible solutions at all scales in the streaming scenario.
+Figure~\ref{fig:streaming-vs-synthetic} illustrates these findings. MILP remains the only solver achieving feasible solutions at all scales in the streaming scenario.
 
 \subsection{Complex-Constraint Streaming Pipeline with Hardware Validation}
 \label{sec:complex_streaming}
