@@ -22,10 +22,7 @@ This formulation penalises delayed scheduling of high-priority machines. For exa
 \begin{equation}
 100 + 1000 \cdot 0.9 \cdot \frac{36}{72} = 550,
 \end{equation}
-whereas scheduling the same machine at $t_i = 0$ results in a cost of only:
-\begin{equation}
-100.
-\end{equation}
+whereas scheduling the same machine at $t_i = 0$ results in a cost of only: 100.
 
 \subsection{Constraints}
 The feasibility of the optimisation problem is governed by two hard constraints:
@@ -53,23 +50,6 @@ T = \max\!\left(4,\; \left\lceil \frac{N}{C} \right\rceil + \max\!\left(1,\; \le
 
 This formulation introduces additional slack beyond the minimum required number of slots. At the boundary condition $N = C \cdot T$, the feasible region becomes highly constrained, leading to a near-zero probability of finding valid solutions in the search space. The slack term $\max(1, \lfloor N/10 \rfloor)$ mitigates this degeneracy by expanding the feasible region.
 
-For example, consider $N = 15$ and $C = 3$. The minimum required number of slots is:
-\begin{equation}
-\left\lceil \frac{15}{3} \right\rceil = 5,
-\end{equation}
-whereas the adaptive formulation yields:
-\begin{equation}
-T = 5 + 1 = 6.
-\end{equation}
-
-This provides a total capacity of:
-\begin{equation}
-6 \times 3 = 18,
-\end{equation}
-which accommodates $15$ machines with a slack ratio of:
-\begin{equation}
-\frac{18}{15} = 1.2.
-\end{equation}
 
 \section{Quadratic Unconstrained Binary Optimization}
 Both quantum-inspired and gate-based quantum approaches require the optimisation problem to be formulated as a Quadratic Unconstrained Binary Optimization (QUBO) problem:

@@ -587,46 +587,8 @@ This approach offers several advantages over simpler alternatives: (a) it is par
 \subsection{Anchor Strategy: Machine 40 as the Sensing Surrogate}
 The active sensor is conceptually treated as being physically co-located with Machine 40, designated as the **anchor machine**. This design choice reduces the problem from simultaneous multi-machine sensing to a single-point observation with graph-based propagation. The anchor machine receives the aligned sensor readings directly (temperature and humidity from the aligner), while the T-GCN predicts the remaining three features (vibration, pressure, energy consumption) using the full 7-feature model.
 
-Beyond static graph analysis, the T-GCN enables a practical deployment scenario in which Machine~40---equipped with a fully active sensor suite---serves as the sole anchor data source for the entire machine pool. In this configuration, the \texttt{AnchorBufferManager} ingests the continuous five-channel sensor stream from Machine~40 and maintains a sliding window of the most recent readings. When a dependent machine lacks a complete sensor set (e.g., missing humidity or pressure due to instrumentation cost or sensor failure), the T-GCN does not treat that machine as isolated; instead, it propagates Machine~40's encoded spatial embedding through the graph convolution layers along the outgoing edges of the adjacency graph. The resulting dependent-machine prediction is therefore a \emph{graph-influenced} forecast that blends the machine's own partial observations with the anchor's thermal and mechanical state transmitted through the learned cross-correlation structure.
+Beyond static graph analysis, the T-GCN enables a practical deployment scenario in which Machine~40 equipped with a fully active sensor suite---serves as the sole anchor data source for the entire machine pool. In this configuration, the Anchor Buffer Manager ingests the continuous five-channel sensor stream from Machine~40 and maintains a sliding window of the most recent readings. When a dependent machine lacks a complete sensor set (e.g., missing humidity or pressure due to instrumentation cost or sensor failure), the T-GCN does not treat that machine as isolated; instead, it propagates Machine~40's encoded spatial embedding through the graph convolution layers along the outgoing edges of the adjacency graph. The resulting dependent-machine prediction is therefore a \emph{graph-influenced} forecast that blends the machine's own partial observations with the anchor's thermal and mechanical state transmitted through the learned cross-correlation structure.
 
-Figure~\ref{fig:anchor_workflow} illustrates this workflow. Machine~40's live sensor stream enters the \texttt{AnchorBufferManager}, which handles missing samples by imputing from the T-GCN's previous prediction. The buffered window is fed into the T-GCN's Graph Convolution layers, where the normalised adjacency matrix $\hat{A}$ propagates the anchor's spatial embedding to all 17 dependent machines. Each dependent machine receives a weighted mixture of its own (possibly partial) input and the anchor's propagated state, producing a next-step forecast that reflects both local and fleet-wide dynamics.
-
-\begin{figure}[!htbp]
-\centering
-\begin{minipage}{0.95\textwidth}
-\small
-\begin{verbatim}
- +------------------+          +------------------------+
- |  Machine 40      |          |  Machine i (i != 40)   |
- |  (Anchor Node)   |          |  (Dependent Node)      |
- |  5 Sensor Active   |          |  Partial/No Sensor     |
- +--------+---------+          +-----------+------------+
-          |                                |
-          v                                v
- +--------+---------+          +-----------+------------+
- | AnchorBuffer     |          |  Partial Sensor Input  |
- | Manager          |          |  (imputed if missing)  |
- | (sliding window, |          +-----------+------------+
- |  impute from     |                      |
- |  T-GCN pred.)  |                      v
- +--------+---------+          +-----------+------------+
-          |                    |  T-GCN Graph Conv.     |
-          +------------------->|  (edge from Machine 40)|
-                               +-----------+------------+
-                                           |
-                    +----------------------+----------------------+
-                    |                                             |
-                    v                                             v
-         +----------+----------+                       +----------+----------+
-         | Prediction Machine 40 |                       | Prediction Machine i|
-         | (next-step forecast)  |                       | (influenced by    |
-         +-----------------------+                       |  Machine 40 data)  |
-                                                         +---------------------+
-\end{verbatim}
-\end{minipage}
-\caption{ASCII workflow diagram of the anchor-driven streaming and cross-machine imputation mechanism. Machine~40, the only fully instrumented node, feeds a continuous sensor stream into the \texttt{AnchorBufferManager}. The T-GCN graph convolution propagates the anchor's spatial embedding through the cross-correlation adjacency edges, producing graph-influenced forecasts for all dependent machines---including those with partial or missing sensors.}
-\label{fig:anchor_workflow}
-\end{figure}
 
 This anchor-driven design has two immediate operational benefits. First, it reduces the minimum sensor instrumentation required for fleet-wide predictive maintenance: only Machine~40 needs a complete, high-reliability sensor suite, while dependents can operate with cheaper, partial instrumentation. Second, it enables early-warning propagation: because the graph encodes lagged thermal and mechanical influence relationships, an anomaly detected at Machine~40 generates predictive alerts for dependent machines before their own local sensors cross warning thresholds. The \texttt{propagate\_from\_anchor} function formalises this behaviour by injecting synthetic perturbations at the anchor and measuring their graph-mediated impact, confirming that the cross-correlation adjacency structure captures real, operationally relevant cross-machine dynamics.
 
@@ -681,11 +643,11 @@ Finally, each machine independently performs node-specific forecasting via the T
 \State \Return results
 \end{algorithmic}
 \end{algorithm}
-\subsection{Real-Time Simulation Loop}
-The complete real-time simulation cycle integrates all components in a 60-second loop, as depicted in the sequence diagram of Figure \ref{fig:sequence-diagram}.
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1\textwidth]{figures/images/sequence diagram sensor (2).png}
-    \caption{Sequence diagram of one 60-second simulation cycle}
-    \label{fig:sequence-diagram}
-\end{figure}
+% \subsection{Real-Time Simulation Loop}
+% The complete real-time simulation cycle integrates all components in a 60-second loop, as depicted in the sequence diagram of Figure \ref{fig:sequence-diagram}.
+% \begin{figure}[!htbp]
+%     \centering
+%     \includegraphics[width=1\textwidth]{figures/images/sequence diagram sensor (2).png}
+%     \caption{Sequence diagram of one 60-second simulation cycle}
+%     \label{fig:sequence-diagram}
+% \end{figure}
