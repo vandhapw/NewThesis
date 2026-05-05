@@ -150,7 +150,7 @@ The penalty weights are then set as:
 \lambda_{\text{cap}}    &= 2 \cdot C_{\max}.
 \end{align}
 
-The factor of 3 in lambda_assign ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
+The factor of 3 in $\lambda_{\text{assign}}$ ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
 
 \begin{algorithm}[htbp]
 \small
@@ -494,7 +494,7 @@ Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 mach
 \end{figure}
 
 \section{Classical Simulation (State Vector)}
-For validation and parameter optimization, the QAOA circuit is simulated using numpy state-vector computation. The state vector has dimension $2^n$, where n = N * T is the number of qubits. This limits classical simulation to approximately N <= 4 machines (16 qubits, 65,536 states) due to exponential memory scaling. Variational parameters $$(gamma_l, beta_l)$ for l = 1, ..., p are optimized using COBYLA with multiple random restarts. The cost function is the expectation value of the problem Hamiltonian:
+For validation and parameter optimization, the QAOA circuit is simulated using numpy state-vector computation. The state vector has dimension $2^n$, where $n = N \cdot T$ is the number of qubits. This limits classical simulation to approximately $N \leq 4$ machines (16 qubits, 65{,}536 states) due to exponential memory scaling. Variational parameters $(\gamma_l, \beta_l)$ for $l = 1, \ldots, p$ are optimized using COBYLA with multiple random restarts. The cost function is the expectation value of the problem Hamiltonian:
 
 \begin{equation}
 C(\boldsymbol{\gamma}, \boldsymbol{\beta}) 
@@ -617,7 +617,7 @@ c c c c c c c
 \bottomrule
 \end{tabularx}
 \footnotesize
-\textit{Note: SQA skipped for $N \gt 10$ due to timeout. Gap $= (\text{Cost}_{\text{method}} - \text{Cost}_{\text{MILP}})/\text{Cost}_{\text{MILP}} \times 100\%$. Dashes indicate method not executed at that scale.}
+\textit{Note: SQA skipped for $N > 10$ due to timeout. Gap $= (\mathrm{Cost}_{\mathrm{method}} - \mathrm{Cost}_{\mathrm{MILP}})/\mathrm{Cost}_{\mathrm{MILP}} \times 100\%$. Dashes indicate method not executed at that scale.}
 
 \end{table}
 

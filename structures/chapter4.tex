@@ -315,7 +315,7 @@ where $\mathcal{S}^{-1}(\cdot)$ denotes the inverse transformation of the standa
 
 This differencing formulation enables the model to predict \emph{incremental changes} rather than absolute values, thereby improving numerical stability and inducing stationarity in the time series. Such transformation is widely adopted in time-series forecasting literature \cite{hyndman2018forecasting}.
 
-\section{Sensor Domain Alignment & Fleet Propagation}
+\section{Sensor Domain Alignment and Fleet Propagation}
 \subsubsection{The Sensor Domain Mismatch Problem}
 A fundamental challenge in connecting environmental IoT sensors to manufacturing digital twins is the domain mismatch between sensor operating ranges and machine operating parameters. The Plalion environmental sensor measures ambient conditions (temperature ≈ 22–33°C, humidity ≈ 20–60\%RH), whereas operational manufacturing machinery exhibits significantly elevated ranges (temperature ≈ 65–85°C, humidity ≈ 35–75\%RH). Directly substituting environmental readings as machine features would produce physically implausible predictions and mislead downstream classification models.
 

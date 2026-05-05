@@ -12,6 +12,8 @@
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
 \usepackage{tabularx}
 \usepackage{tikz}
 \usepackage{booktabs}
@@ -98,8 +100,33 @@
 \setlength{\parindent}{0pt}   % remove indentation
 
 % --- Float Separation ---
-\setlength{\textfloatsep}{20pt} % space between table/figure and text
-\setlength{\intextsep}{15pt}
+\setlength{\textfloatsep}{12pt}    % space between top/bottom float and text
+\setlength{\intextsep}{10pt}       % space around in-text [h] floats
+\setlength{\floatsep}{10pt}        % space between consecutive floats
+\setlength{\dbltextfloatsep}{12pt}
+\setlength{\dblfloatsep}{10pt}
+
+% --- Float Placement Parameters ---
+% Relax LaTeX defaults so floats are kept near their source text and
+% large floats are allowed on top/bottom of pages, eliminating the
+% large blank gaps caused by deferred floats.
+\renewcommand{\topfraction}{0.92}        % was 0.7
+\renewcommand{\bottomfraction}{0.85}     % was 0.3
+\renewcommand{\textfraction}{0.06}       % was 0.2
+\renewcommand{\floatpagefraction}{0.75}  % was 0.5
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\dblfloatpagefraction}{0.75}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{3}
+\setcounter{totalnumber}{6}
+\setcounter{dbltopnumber}{4}
+
+% Keep floats within their owning section: \FloatBarrier triggers on every section
+\usepackage[section]{placeins}
+
+% Allow LaTeX to vary the bottom of pages instead of stretching content
+% (avoids vertical glue stretching when a float gets deferred).
+\raggedbottom
 
 % --- Citation Style ---
 % IEEE in-text citation style (numbers in brackets, not footnotes)
