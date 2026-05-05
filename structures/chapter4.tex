@@ -235,10 +235,12 @@ where $\hat{\mathbf{y}} \in \mathbb{R}^{7}$ denotes the predicted feature vector
 \centering
 \caption{Model Hyperparameters and Training Configuration}
 \label{tab:tgcn_hyperparams}
-\renewcommand{\arraystretch}{1.2}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}m{4.2cm}
->{\centering\arraybackslash}m{2.5cm}
+>{\raggedright\arraybackslash}m{4.0cm}
+>{\centering\arraybackslash}m{2.3cm}
 >{\raggedright\arraybackslash}X
 }
 \toprule
@@ -263,6 +265,7 @@ Gradient clipping (max norm)   & 1.0          & Prevents exploding gradients in 
 \bottomrule
 \end{tabularx}
 \end{table}
+\FloatBarrier
 The model is trained in a fleet-pooled manner: all machines training sequences are concatenated into a single dataset, and the T-GCN learns a shared spatial-temporal transformation that is subsequently applied to each machine by indexing the appropriate node in the adjacency matrix. This pooled training strategy leverages the full corpus of historical data (which is richer than any single machine's record) while the graph structure ensures machine-specific predictions through node-indexed inference.
 
 \subsection{Training and Inference Procedure}
