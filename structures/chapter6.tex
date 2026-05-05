@@ -570,27 +570,51 @@ Table \ref{tab:scaling} presents the extended scaling study comparing MILP, QIEA
 
 \begin{table}[!htbp]
 \centering
-\caption{Scaling benchmark comparing MILP, QIEA, and SQA across fleet sizes $N=5$ to $N=30$.}
+\caption{Fair multi-seed scaling benchmark (5 random seeds per $N$) comparing MILP/CBC, QIEA, and SQA. \emph{QIEA cost} reports the best across the 5 seeds; \emph{Feas.\ rate} reports the number of seeds for which the solver returned a one-hot- and capacity-feasible schedule.}
 \label{tab:scaling}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{c c r r r r r}
+\begin{tabular}{c c r r r c r c}
 \toprule
-\textbf{N} & \textbf{n\_time\_options} & \textbf{MILP cost}
-& \textbf{QIEA cost} & \textbf{QIEA gap}
-& \textbf{SQA cost} & \textbf{SQA gap} \\
+\textbf{N} & \textbf{T} & \textbf{MILP cost} & \textbf{MILP ms}
+& \textbf{QIEA best} & \textbf{QIEA feas/5}
+& \textbf{SQA best} & \textbf{SQA feas/5} \\
 \midrule
-5  & 4  & 531.67     & 813.25     & 53.0\%  & 1{,}100.75 & 107.0\% \\
-10 & 5  & 1{,}303.06 & 2{,}563.14 & 96.7\%  & 3{,}264.11 & 150.5\% \\
-15 & 6  & 2{,}180.44 & 4{,}713.17 & 116.2\% & ---        & --- \\
-20 & 9  & 3{,}221.61 & 7{,}070.89 & 119.5\% & ---        & --- \\
-25 & 11 & 4{,}489.89 & 7{,}348.25 & 63.7\%  & ---        & --- \\
-30 & 13 & 6{,}413.56 & 10{,}317.57 & 60.9\% & ---        & --- \\
+3  & 4  &     300.00 &  $\sim$15 &      300.00 & 5/5 & --- & 0/5 \\
+5  & 4  &     687.95 &  $\sim$25 &    1{,}046.50 & 5/5 & --- & 0/5 \\
+7  & 5  &   1{,}158.90 &  $\sim$30 &    1{,}672.75 & 5/5 & --- & 0/5 \\
+10 & 5  &   2{,}030.40 &  $\sim$45 &        ---  & 0/5 & --- & 0/5 \\
+15 & 6  &   3{,}749.06 &  $\sim$60 &        ---  & 0/5 & --- & 0/5 \\
+20 & 9  &   4{,}720.42 &  $\sim$80 &        ---  & 0/5 & --- & 0/5 \\
+30 & 13 &   7{,}288.22 & $\sim$130 &        ---  & 0/5 & --- & 0/5 \\
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-\footnotesize\textit{Note: SQA skipped for $N > 10$ due to timeout. Gap $= (\mathrm{Cost}_{\mathrm{method}} - \mathrm{Cost}_{\mathrm{MILP}})/\mathrm{Cost}_{\mathrm{MILP}} \times 100\%$. Dashes indicate method not executed at that scale.}
+\footnotesize\textit{Note: SQA fails to satisfy the one-hot constraint at every tested scale (penalty-dominated landscape; single-spin Metropolis updates cannot escape penalty barriers). QIEA matches MILP exactly at $N=3$ and remains feasible up to $N=7$ but with growing gap; for $N \geq 10$ the rotation-gate updates likewise cannot maintain one-hot feasibility under the inflated penalty weights. MILP/CBC returns the proven optimum at every tested $N$.}
+\end{table}
+\FloatBarrier
+
+\paragraph{MILP scaling beyond $N=30$.}
+To verify that the classical baseline does not itself become a bottleneck inside the 60-s Kafka cycle of Chapter~5, the same MILP/CBC solver was rerun on larger fleet sizes; results are summarised in Table~\ref{tab:milp_largescale}. The solver remains feasible and well under one second up to $N=150$ (binary search space of $9{,}750$ variables), confirming that for the present formulation the practical bar is set by polynomial-time exact optimisation rather than by quantum or quantum-inspired heuristics.
+
+\begin{table}[!htbp]
+\centering
+\caption{MILP/CBC scaling beyond the multi-seed regime (single seed). Solve time grows roughly linearly with $N$ and remains far below the 60-s Kafka cycle deadline introduced in Chapter~5.}
+\label{tab:milp_largescale}
+\small
+\renewcommand{\arraystretch}{1.05}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{c c r r r}
+\toprule
+\textbf{N} & \textbf{T} & \textbf{n\_bits} & \textbf{MILP cost} & \textbf{Solve time (ms)} \\
+\midrule
+50  & 22 & 1{,}100  &  11{,}612.17 & 111.1 \\
+75  & 32 & 2{,}400  &  20{,}079.17 & 222.3 \\
+100 & 44 & 4{,}400  &  20{,}611.25 & 395.6 \\
+150 & 65 & 9{,}750  &  39{,}524.08 & 781.7 \\
+\bottomrule
+\end{tabular}
 \end{table}
 \FloatBarrier
 
@@ -712,14 +736,15 @@ The \emph{search-quality gap} reflects the algorithm's inability to find the opt
 Evidence for discretisation dominance: the QIEA gap decreases from 53\% at $N=5$ (slot size 18~h, 4 options) to 61\% at $N=30$ (slot size 5~h, 13 options), despite the search space growing from $2^{20}$ to $2^{390}$ binary variables. The decreasing gap with increasing $T$ suggests that the QUBO formulation's time granularity, not the search algorithm, is the primary bottleneck for solution quality.
 
 \subsection{Algorithm Ranking}
-Across all tested scales, the solver ranking by solution quality is:
+The ranking that emerges from the fair multi-seed scaling benchmark of Table~\ref{tab:scaling} and the MILP scaling extension of Table~\ref{tab:milp_largescale} is unambiguous:
 \begin{enumerate}
-    \item \textbf{MILP/CBC} --- exact optimal, polynomial time for these problem sizes (6--105~ms).
-    \item \textbf{QIEA} --- best quantum-inspired method, 1.5--2.2$\times$ optimal cost, feasible at all scales up to $N=30$ (35--6{,}000~ms).
-    \item \textbf{QAOA/sim} --- achieves the optimum at $N=3$ ($\text{gap}=0.0\%$), limited to $N\leq 4$ by exponential memory.
-    \item \textbf{SQA} --- 2.0--2.5$\times$ optimal cost where feasible, suffers from a penalty-dominated landscape causing local-minimum trapping (870--9{,}700~ms).
+    \item \textbf{MILP/CBC} --- proven optimum at every tested $N$, sub-second up to $N=150$, the only solver returning a one-hot- and capacity-feasible schedule across all scales.
+    \item \textbf{QIEA} --- matches the MILP optimum exactly at $N=3$ across all 5 random seeds; remains feasible up to $N=7$ but with a 44--52\% optimality gap on the best of 5 seeds; fails to satisfy the one-hot constraint for any seed once $N \geq 10$ (penalty weight $\lambda_{\text{assign}} = 3 \cdot C_{\max} \cdot T$ scales with the problem and induces a search landscape too rugged for the rotation-gate updates).
+    \item \textbf{QAOA/sim} --- recovers the MILP optimum at $N=3$ via the XY-ring-mixer one-hot preservation; cannot be evaluated for $N \geq 5$ because the $2^{N \cdot T}$ state-vector exceeds practical memory.
+    \item \textbf{SQA} --- fails to return a one-hot-feasible schedule at every tested $N$, including $N=3$ where the search space is only $2^{12}$. The single-spin Metropolis dynamics within Trotter replicas cannot escape penalty barriers in this constrained scheduling QUBO; with the inter-replica coupling $J_{\perp}$ growing as $\Gamma \to 0$, all replicas collapse to the same penalty-violating local minimum.
 \end{enumerate}
-QIEA outperforms SQA by 21--26\% on instances where both produce feasible solutions. The population-based search of QIEA explores many candidate solutions simultaneously through quantum rotation gates, maintaining diversity through probabilistic observation. SQA, in contrast, relies on single-spin Metropolis updates within Trotter replicas, which mix slowly in the penalty-dominated Ising landscape characteristic of constrained scheduling problems. Figure~\ref{fig:runtime-scaling} presents the runtime scaling across all methods.
+
+The headline finding is that, for this problem class at the scales evaluated, classical exact branch-and-cut is the right tool, and the apparent ``quantum advantage'' frequently reported in the QUBO/Ising literature for synthetic spin-glass problems does not transfer to constrained maintenance scheduling with linear objective and integer capacity. Figure~\ref{fig:runtime-scaling} presents the runtime scaling across all methods.
 
 \begin{figure}[!htbp]
     \centering
@@ -814,16 +839,7 @@ The streaming data reveals three critical differences from synthetic benchmarks.
 
 Figures~\ref{fig:streaming-vs-synthetic}--\ref{fig:priority-distribution} illustrate these findings. MILP remains the only solver achieving feasible solutions at all scales in the streaming scenario.
 
-\section{Conclusion}
-This chapter presented a comprehensive evaluation of quantum and quantum-inspired approaches to maintenance-scheduling optimisation across three experimental settings: synthetic benchmarks, a unified all-methods comparison, and real-time streaming data from the multi-agent pipeline. The key findings are summarised below.
+\subsection{Conditions for a Quantum or Quantum-Inspired Advantage}
+The empirical evidence above is consistent across synthetic, scaling, and streaming benchmarks: for the maintenance-scheduling formulation as posed --- linear objective, one-hot machine assignment, integer capacity per slot --- exact branch-and-cut MILP/CBC dominates QIEA, SQA, and the QAOA simulator at every tested fleet size. The MILP scaling extension in Table~\ref{tab:milp_largescale} shows that this dominance persists up to at least $N=150$ in well under one second, comfortably inside the 60-s Kafka cycle established in Chapter~5. A genuine quantum or quantum-inspired advantage in this domain therefore requires \emph{either} (i) problem reformulations that avoid the penalty-dominated QUBO landscape (constraint-preserving mixers such as the XY ring mixer used by QAOA, problem-specific warm starts, or hybrid decomposition that confines the QUBO to small sub-instances), \emph{or} (ii) problem regimes in which the assumptions underlying MILP's polynomial-time tractability break down --- e.g.\ non-linear damage-recovery objectives, discrete crew-routing extensions, very large fleet sizes ($N \gg 10^3$) where branch-and-cut leaves its polynomial-time regime, or coupled multi-site problems whose constraint matrix loses its block structure. Identifying the empirical boundary at which one of these conditions tips the balance toward the quantum-inspired or quantum-hardware path is left to Chapter~7 as future work.
 
-\begin{enumerate}
-    \item The QUBO formulation with data-driven penalty calibration produces correct encodings, as validated by QIEA and QAOA achieving the exact MILP optimum at $N=3$ in both synthetic and streaming experiments.
-    \item QIEA is the most practical quantum-inspired solver on synthetic data, achieving feasible solutions at all tested scales ($N=3$--$30$) with gaps of 53--120\% from the MILP optimum. With real-time streaming data, however, QIEA feasibility degrades significantly beyond $N=5$ owing to higher priority magnitudes that create steeper penalty landscapes.
-    \item QAOA with the XY ring mixer successfully maintains one-hot feasibility through structural constraint preservation, achieving optimal solutions at $N=3$ in both synthetic and streaming experiments.
-    \item Real-time streaming data produces substantially harder scheduling problems than synthetic benchmarks. Machine priorities derived from accumulated sensor anomalies (average 155--192) create QUBO landscapes with larger penalty magnitudes, causing quantum-inspired solvers to reach their infeasibility frontier at smaller scales ($N=8$ versus $N>30$ on synthetic data).
-    \item Current NISQ hardware (IBM Heron~r2) supports QAOA scheduling up to approximately $N=5$--$10$ machines before noise renders the output infeasible. Circuit depth, not qubit count, is the limiting factor.
-    \item Classical MILP/CBC remains the only solver achieving feasible solutions at all tested scales across both synthetic and streaming data, with consistent sub-millisecond to single-digit-millisecond solve times. This establishes the practical bar that quantum approaches must exceed for a scheduling advantage.
-\end{enumerate}
-
-These results demonstrate that the gap between quantum and classical optimisation is wider in realistic streaming deployments than synthetic benchmarks suggest. The streaming experiment reveals that penalty-dominated QUBO landscapes --- an artefact of converting constrained problems to unconstrained form --- present the primary barrier to quantum-inspired solver performance. Future work should investigate constraint-native quantum approaches (such as QAOA with the XY mixer extended to larger scales) and improved QUBO formulations with adaptive penalty schedules that respond to the distributional characteristics of streaming-derived priorities.
+The full chapter-level synthesis of these scheduling findings, together with the contributions from Chapters~3--5 and the limitations and future directions for the entire QASAMAP framework, is given in Chapter~7.
