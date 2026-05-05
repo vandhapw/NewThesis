@@ -154,13 +154,13 @@ Quantum entanglement is a uniquely quantum mechanical phenomenon in which the st
     |\Phi^+\rangle = \frac{1}{\sqrt{2}}\left(|00\rangle + |11\rangle\right)
     \label{eq:bell_state}
 \end{equation}
-Measuring the first qubit immediately collapses the second qubit to the same state, regardless of spatial separation. This non-local correlation, which Einstein, Podolsky, and Rosen famously critiqued as ``spooky action at a distance,'' has been experimentally verified through Bell inequality tests and underpins quantum communication and quantum error correction.
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.85\textwidth]{figures/images/EPR_paradox_thought_experiment.png}
-    \caption{Illustration of the Einstein-Podolsky-Rosen (EPR) paradox: two entangled particles are prepared in a correlated state and separated; measurement of one particle instantaneously determines the state of the other, demonstrating quantum non-locality}
-    \label{fig:epr_paradox}
-\end{figure}
+Measuring the first qubit immediately collapses the second qubit to the same state, regardless of spatial separation. This non-local correlation, which Einstein, Podolsky, and Rosen famously critiqued as spooky action at a distance, has been experimentally verified through Bell inequality tests and underpins quantum communication and quantum error correction.
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/images/EPR_paradox_thought_experiment.png}
+%     \caption{Illustration of the Einstein-Podolsky-Rosen (EPR) paradox: two entangled particles are prepared in a correlated state and separated; measurement of one particle instantaneously determines the state of the other, demonstrating quantum non-locality}
+%     \label{fig:epr_paradox}
+% \end{figure}
 In the context of industrial sensor monitoring, entanglement provides a mathematical metaphor for capturing cross-sensor correlations that classical independent-feature models miss. Just as the state of one entangled qubit is inseparable from its partner, the health of one machine sensor may be intrinsically linked to another through shared operational context. The QASAMAP Pauli-Z encoding circuit uses CNOT gates between adjacent sensor qubits to introduce entanglement-like correlations in the joint density matrix, ensuring that the composite risk indicator reflects inter-sensor dependencies rather than treating each sensor in isolation.
 
 \subsection{Variational Quantum Circuits}
@@ -168,7 +168,7 @@ In the context of industrial sensor monitoring, entanglement provides a mathemat
 Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits (PQC), form the algorithmic backbone of near-term quantum machine learning in the NISQ era. A VQC consists of three layers: an encoding layer that maps classical data into quantum states, a variational layer of parameterised unitary operations, and a measurement layer that extracts classical expectations from the resulting quantum state.
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{figures/images/vqe_illustration.png}
+    \includegraphics[width=1\textwidth]{figures/images/vqe_illustration.png}
     \caption{High-level illustration of a Variational Quantum Algorithm (VQE). Classical input data are encoded into a parameterised quantum circuit (ansatz); the resulting state is measured to compute an expectation value (e.g., energy); a classical optimiser updates the parameters iteratively to minimise the objective. Image from Wikimedia Commons (CC0).}
     \label{fig:vqe_illustration}
 \end{figure}
@@ -250,12 +250,12 @@ where $A(t)$ starts large and decreases to zero, while $B(t)$ starts at zero and
 These theoretical foundations inform the design of QASAMAP's quantum-inspired heuristics, which preserve the Hamiltonian and QUBO mathematical structures while executing on classical hardware.
 
 \subsection{Quantum Annealing and QUBO Formulations}
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.7\textwidth]{figures/images/dwave_chip.jpg}
-    \caption{Photograph of a D-Wave 128-qubit superconducting adiabatic quantum optimization processor, the hardware platform that implements quantum annealing for QUBO and Ising formulations. Image from Wikimedia Commons (CC BY 3.0).}
-    \label{fig:dwave_chip}
-\end{figure}
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=0.7\textwidth]{figures/images/dwave_chip.jpg}
+%     \caption{Photograph of a D-Wave 128-qubit superconducting adiabatic quantum optimization processor, the hardware platform that implements quantum annealing for QUBO and Ising formulations. Image from Wikimedia Commons (CC BY 3.0).}
+%     \label{fig:dwave_chip}
+% \end{figure}
 Quantum annealing solves combinatorial optimization problems by mapping them to Quadratic Unconstrained Binary Optimization formulations and finding minimum-energy states of an Ising Hamiltonian. Dalyac et al. \cite{dalyac_qualifying_2021} qualify quantum approaches for hard industrial optimization problems, demonstrating that quantum annealing provides competitive solution quality for practical problem sizes. Tambunan et al. \cite{Tambunan2022} provide detailed QUBO formulations for routing problems with weighted edge segments, showing that quantum annealers achieve solution quality within 5\% of optimal for up to 20 nodes. Holliday et al. \cite{holliday_advanced_2025} introduce constraint encoding techniques for time-window constraints in quantum annealing formulations directly applicable to maintenance scheduling with shift-based windows. Bova et al. \cite{Bova2021} review commercial quantum computing applications, identifying maintenance scheduling as one of the three highest-value near-term application areas for quantum optimization in industry.
 
 \subsection{QAOA for Combinatorial Scheduling}

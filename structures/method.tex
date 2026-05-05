@@ -13,7 +13,7 @@ QASAMAP is organized into three functional layers, as illustrated in Figure~\ref
 \textbf{Layer 3 Quantum-Inspired Classical Heuristic Engine.} The third layer augments the agentic pipeline with three quantum-inspired classical heuristics: Pauli-Z multi-sensor risk encoding, QUBO-formulated priority ranking, and QAOA-formulated maintenance slot scheduling. Full mathematical formulations, algorithmic disclosures, and experimental assessment of these heuristics are presented in Chapter~\ref{chap:quantum}. A heuristic override mechanism escalates machines carrying quantum-style danger signals to active inspection even when their classical risk scores fall in the LOW category, providing a guard against false negatives that classical thresholds alone would miss.
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/images/research_methodology.png}
+    \includegraphics[width=1\textwidth]{figures/images/Research Methodology - Comprehensive Industrial AI & Quantum Optimization Workflow.png}
     \caption{QASAMAP Research Methodology: The three-layer architecture spanning data generation and predictive modelling (Layer~1), Agentic AI Framework with multi-agent LLM orchestration (Layer~2), and Quantum-Inspired Classical Heuristic Engine with QUBO-formulated local search, QAOA-formulated graph scheduling, and Pauli-Z encoding (Layer~3).}
     \label{fig:research_methodology}
 \end{figure}
@@ -38,13 +38,15 @@ The dataset models a smart manufacturing environment where machines are continuo
 
 The historical dataset contains 100,000 records collected from 50 machines over the period from 2025-01-01 to 2025-03-11. Each record represents one machine condition observation, including sensor measurements, machine status, anomaly indicator, predicted remaining useful life, failure type, downtime risk, and maintenance requirement. The streaming dataset is produced by a digital twin simulation and stored through a Kafka-MongoDB pipeline. The historical dataset is used for model development, feature analysis, risk formulation, and validation, while the Kafka streaming data is used to evaluate anomaly detection and predictive maintenance in a real-time decision-making scenario.
 
+\input{tables/feature_description}
+
 Table~\ref{table:dataset_summary} summarizes the key properties of the historical CSV dataset, and Table~\ref{table:feature_description} describes each feature column.
+
+The empirical consequences of siloed modelling are directly observable in the dataset. The anomaly flag, predicted RUL, failure type, and maintenance required label are all statistically interdependent: temperature correlates with anomaly flag at $r = 0.447$, anomaly flag correlates with downtime risk at $r \approx 1.0$, and RUL correlates with downtime risk at $r = -0.436$. The 16,333 readings with RUL below 50 hours represent machines that are simultaneously anomalous and prognostically critical a dual characterization that joint modeling exploits far more effectively than independent models.
+
 
 \input{tables/dataset}
 
-\input{tables/feature_description}
-
-The empirical consequences of siloed modelling are directly observable in the dataset. The anomaly flag, predicted RUL, failure type, and maintenance required label are all statistically interdependent: temperature correlates with anomaly flag at $r = 0.447$, anomaly flag correlates with downtime risk at $r \approx 1.0$, and RUL correlates with downtime risk at $r = -0.436$. The 16,333 readings with RUL below 50 hours represent machines that are simultaneously anomalous and prognostically critical a dual characterization that joint modeling exploits far more effectively than independent models.
 
 % \subsubsection{Spatiotemporal Forecasting with T-GCN}
 

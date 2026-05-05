@@ -1,210 +1,782 @@
-\section{Quantum-Inspired Heuristic Layer Assessment}
+\section{Background}
+Maintenance scheduling in industrial predictive maintenance systems is a combinatorial optimization problem that grows exponentially with the number of machines. Given N machines and T discrete time slots, the decision space comprises $T^N$ possible assignments, subject to capacity and assignment constraints. Classical solvers such as Mixed-Integer Linear Programming (MILP) guarantee optimality but face scalability limits for large-scale instances. This section presents quantum and quantum-inspired approaches to maintenance scheduling, evaluating their solution quality, computational cost, and practical feasibility against classical baselines.
+Three paradigms are investigated. First, quantum-inspired algorithms that run on classical hardware but exploit heuristics drawn from quantum mechanics. Second, gate-based quantum optimization using the Quantum Approximate Optimization Algorithm (QAOA) executed on IBM Quantum hardware. Third, classical exact optimization via MILP/CBC as the benchmark for optimality.
 
-The quantum-inspired classical heuristic layer changes the decision profile of the agentic pipeline in the 7-machine demonstration. The Pauli-Z multi-sensor encoding function (\texttt{energy\_distance\_anomaly\_score}) computes a normalized L2 distance from the training-set median per feature, mapped through a cosine formulation that mirrors the Pauli-Z expectation structure, producing a composite risk indicator $\langle Z \rangle_c$. The QUBO-formulated priority ranking (\texttt{random\_constrained\_search}) is a greedy seed plus random 1-bit-flip local search that minimises a QUBO-energy objective. The QAOA-formulated scheduling (\texttt{graph\_message\_passing\_score}) performs weighted-neighbour averaging on the T-GCN adjacency matrix. \textbf{Critical disclosure:} None of these components are executed on quantum hardware; they are classical heuristics designed to preserve the mathematical structure of their quantum counterparts for future hardware migration \cite{Blekos2024, Preskill2018}.
+\section{Problem Formulation}
+\subsection{Maintenance Scheduling as Combinatorial Optimization}
+The scheduling problem assigns each of N machines to one of T discrete maintenance windows within a planning horizon of H = 72 hours. The slot granularity is s = H / T hours per slot. Each machine i has a priority score $p_i$ in [0, 100] reflecting its failure risk, derived from sensor anomaly detection and damage index estimation by the upstream multi-agent system.
+The objective minimizes total scheduling cost:
+The optimization objective is defined as:
+\begin{equation}
+\min_{ \{t_i\}_{i=1}^N } 
+\sum_{i=1}^{N} 
+\left[
+C_{\text{maint}} 
++ C_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{t_i}{H}
+\right].
+\end{equation}
 
-The heuristic layer numerical results for the 7-machine demonstration are summarized in Table~\ref{tab:heuristic_layer}. The per-sensor Pauli-Z expectations and composite $\langle Z \rangle_c$ are computed via the classical cosine-encoding formula (Equation~\ref{eq:composite_z}), not by executing the 5-qubit circuit shown in Figure~\ref{fig:pauliz_circuit} on a quantum processor.
+Here, $C_{\text{maint}} = 100$ denotes the fixed maintenance cost, while $C_{\text{risk}} = 1000$ represents the risk-weighted delay penalty. The variable $t_i$ corresponds to the scheduled start time for machine $i$, and $p_i$ indicates its priority score.
+
+This formulation penalises delayed scheduling of high-priority machines. For example, a machine with $p_i = 90$ scheduled at $t_i = 36$ (with $H = 72$) incurs a total cost of:
+\begin{equation}
+100 + 1000 \cdot 0.9 \cdot \frac{36}{72} = 550,
+\end{equation}
+whereas scheduling the same machine at $t_i = 0$ results in a cost of only:
+\begin{equation}
+100.
+\end{equation}
+
+\subsection{Constraints}
+The feasibility of the optimisation problem is governed by two hard constraints:
+
+\textbf{(1) One-hot assignment constraint.}
+Each machine must be assigned to exactly one time slot:
+\begin{equation}
+\sum_{j=1}^{T} x_{i,j} = 1, \quad \forall i \in \{1, \ldots, N\},
+\end{equation}
+where $x_{i,j} \in \{0,1\}$ is a binary decision variable indicating whether machine $i$ is scheduled in time slot $j$.
+
+\vspace{0.5em}
+
+\textbf{(2) Capacity constraint.}
+At most $C = 3$ machines can undergo maintenance simultaneously in any time slot:
+\begin{equation}
+\sum_{i=1}^{N} x_{i,j} \leq C, \quad \forall j \in \{1, \ldots, T\}.
+\end{equation}
+
+These constraints reflect practical operational limitations, including maintenance crew availability, spare parts constraints, and safety regulations, all of which restrict the number of concurrent maintenance activities.
+
+\subsection{Time Discretizations}
+The number of time slots $T$ is computed adaptively based on the problem parameters:
+\begin{equation}
+T = \max\!\left(4,\; \left\lceil \frac{N}{C} \right\rceil + \max\!\left(1,\; \left\lfloor \frac{N}{10} \right\rfloor \right) \right).
+\end{equation}
+
+This formulation introduces additional slack beyond the minimum required number of slots. At the boundary condition $N = C \cdot T$, the feasible region becomes highly constrained, leading to a near-zero probability of finding valid solutions in the search space. The slack term $\max(1, \lfloor N/10 \rfloor)$ mitigates this degeneracy by expanding the feasible region.
+
+For example, consider $N = 15$ and $C = 3$. The minimum required number of slots is:
+\begin{equation}
+\left\lceil \frac{15}{3} \right\rceil = 5,
+\end{equation}
+whereas the adaptive formulation yields:
+\begin{equation}
+T = 5 + 1 = 6.
+\end{equation}
+
+This provides a total capacity of:
+\begin{equation}
+6 \times 3 = 18,
+\end{equation}
+which accommodates $15$ machines with a slack ratio of:
+\begin{equation}
+\frac{18}{15} = 1.2.
+\end{equation}
+
+\section{QUBO Formulation for Quantum Processing}
+\section{Quadratic Unconstrained Binary Optimization}
+Both quantum-inspired and gate-based quantum approaches require the optimisation problem to be formulated as a Quadratic Unconstrained Binary Optimization (QUBO) problem:
+
+\begin{equation}
+\min_{\mathbf{x} \in \{0,1\}^n} \; \mathbf{x}^\top \mathbf{Q} \mathbf{x},
+\end{equation}
+
+where $\mathbf{x} \in \{0,1\}^n$ is a binary decision vector of dimension $n = N \cdot T$, and $\mathbf{Q} \in \mathbb{R}^{n \times n}$ is a real symmetric matrix.
+
+The QUBO matrix $\mathbf{Q}$ encodes both the objective function and the problem constraints through penalty terms, enabling unconstrained optimization in a quadratic form.
+
+\subsection{Objective Encoding}
+The scheduling cost is embedded into the diagonal elements of the QUBO matrix $\mathbf{Q}$. Specifically, for each machine $i \in \{1, \ldots, N\}$ and time slot $j \in \{1, \ldots, T\}$, the diagonal entry is defined as:
+
+\begin{equation}
+Q_{(i,j),(i,j)} \; \mathrel{+}= \;
+C_{\text{maint}} 
++ C_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{j}{T}.
+\end{equation}
+
+This construction maps the original linear objective into a quadratic form, leveraging the binary property:
+\begin{equation}
+x_{i,j}^2 = x_{i,j}, \quad \text{for } x_{i,j} \in \{0,1\}.
+\end{equation}
+
+Thus, the contribution of each decision variable $x_{i,j}$ to the objective is encoded directly on the diagonal of $\mathbf{Q}$.
+
+\subsection{Constraint Encoding via Penalty Terms}
+Constraints are incorporated into the QUBO formulation through quadratic penalty terms with appropriately calibrated weights.
+
+\textbf{(1) One-hot assignment constraint.}  
+The constraint
+\begin{equation}
+\sum_{j=1}^{T} x_{i,j} = 1
+\end{equation}
+is enforced using the penalty:
+\begin{equation}
+\lambda_{\text{assign}} \left( \sum_{j=1}^{T} x_{i,j} - 1 \right)^2.
+\end{equation}
+
+Expanding the quadratic term:
+\begin{equation}
+\left( \sum_{j} x_j - 1 \right)^2 
+= - \sum_{j} x_j + 2 \sum_{j<k} x_j x_k + 1,
+\end{equation}
+where the identity $x_j^2 = x_j$ holds for binary variables.
+
+This yields the following contributions to the QUBO matrix:
+\begin{align}
+Q_{(i,j),(i,j)} &\;\mathrel{+}= -\lambda_{\text{assign}}, 
+&& \text{(diagonal term)} \\
+Q_{(i,j),(i,k)} &\;\mathrel{+}= 2\,\lambda_{\text{assign}}, \quad j < k,
+&& \text{(off-diagonal, same machine)}.
+\end{align}
+
+\vspace{0.5em}
+
+\textbf{(2) Capacity constraint.}  
+To penalize exceeding the capacity limit $C$ for any time slot, pairwise co-assignments are penalized:
+\begin{equation}
+Q_{(i_1,j),(i_2,j)} \;\mathrel{+}= \frac{\lambda_{\text{cap}}}{C}, 
+\quad \forall i_1 \neq i_2,
+\end{equation}
+for machines assigned to the same time slot $j$.
+
+This discourages assigning more than $C$ machines to the same slot by increasing the energy of infeasible configurations.
+
+\subsection{Penalty Weight Calibration}
+To ensure constraint satisfaction, the penalty weights must dominate the objective contributions. Instead of using fixed heuristic values, the penalty coefficients are derived adaptively from the problem parameters.
+
+First, define the maximum possible cost contribution as:
+\begin{equation}
+C_{\max} = C_{\text{maint}} + C_{\text{risk}} \cdot \max_{i} \left( \frac{p_i}{100} \right).
+\end{equation}
+
+The penalty weights are then set as:
+\begin{align}
+\lambda_{\text{assign}} &= 3 \cdot C_{\max} \cdot T, \\
+\lambda_{\text{cap}}    &= 2 \cdot C_{\max}.
+\end{align}
+
+The factor of 3 in lambda_assign ensures the one-hot penalty exceeds the maximum possible benefit from any assignment choice, preventing the optimizer from trading constraint violations for lower cost. This data-driven calibration adapts to different problem instances without manual tuning.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Build QUBO Matrix for Scheduling}
+\label{alg:build_qubo}
+\begin{algorithmic}[1]
+
+\Require machines with priorities $\{p_i\}_{i=1}^N$, time slots $T$, capacity $C$, costs $(c_{\text{maint}}, c_{\text{risk}})$
+\Ensure symmetric QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, where $n = N \cdot T$
+
+\State $n \gets N \cdot T$
+\State $\mathbf{Q} \gets \mathbf{0}_{n \times n}$
+
+\Statex \textbf{// Compute data-driven penalty weights}
+\State $p_{\max} \gets \max_i \left( \frac{p_i}{100} \right)$
+\State $C_{\max} \gets c_{\text{maint}} + c_{\text{risk}} \cdot p_{\max}$
+\State $\lambda_{\text{assign}} \gets 3 \cdot C_{\max} \cdot T$
+\State $\lambda_{\text{cap}} \gets 2 \cdot C_{\max}$
+
+\Statex
+
+\Statex \textbf{// Encode scheduling cost on diagonal}
+\For{$i = 0$ to $N-1$}
+    \For{$j = 0$ to $T-1$}
+        \State $k \gets i \cdot T + j$
+        \State $Q_{k,k} \gets Q_{k,k} + c_{\text{maint}} + c_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{j}{T}$
+    \EndFor
+\EndFor
+
+\Statex
+
+\Statex \textbf{// One-hot constraint: $(\sum_j x_{i,j} - 1)^2$}
+\For{$i = 0$ to $N-1$}
+    \For{$j = 0$ to $T-1$}
+        \State $k \gets i \cdot T + j$
+        \State $Q_{k,k} \gets Q_{k,k} - \lambda_{\text{assign}}$
+    \EndFor
+    \For{$j = 0$ to $T-1$}
+        \For{$\ell = j+1$ to $T-1$}
+            \State $k_1 \gets i \cdot T + j$
+            \State $k_2 \gets i \cdot T + \ell$
+            \State $Q_{k_1,k_2} \gets Q_{k_1,k_2} + 2 \cdot \lambda_{\text{assign}}$
+        \EndFor
+    \EndFor
+\EndFor
+
+\Statex
+
+\Statex \textbf{// Capacity constraint: penalise same-slot co-assignment}
+\For{$j = 0$ to $T-1$}
+    \For{$i_1 = 0$ to $N-1$}
+        \For{$i_2 = i_1+1$ to $N-1$}
+            \State $k_1 \gets i_1 \cdot T + j$
+            \State $k_2 \gets i_2 \cdot T + j$
+            \State $Q_{k_1,k_2} \gets Q_{k_1,k_2} + \frac{\lambda_{\text{cap}}}{C}$
+        \EndFor
+    \EndFor
+\EndFor
+
+\Statex
+
+\Statex \textbf{// Symmetrize matrix}
+\State $\mathbf{Q} \gets (\mathbf{Q} + \mathbf{Q}^\top)/2$
+
+\State \Return $\mathbf{Q}$
+
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{QUBO to Ising Conversion}
+For quantum annealing-based methods (e.g., SQA) and gate-based quantum algorithms (e.g., QAOA), the QUBO formulation is transformed into an equivalent Ising Hamiltonian using the substitution:
+\begin{equation}
+x_i = \frac{1 + \sigma_i}{2}, \quad \sigma_i \in \{-1, +1\}.
+\end{equation}
+
+Under this transformation, the QUBO objective can be expressed as an Ising Hamiltonian:
+\begin{equation}
+H_{\text{Ising}} = \sum_{i} h_i \, \sigma_i + \sum_{i<j} J_{i,j} \, \sigma_i \sigma_j + \text{offset}.
+\end{equation}
+
+The corresponding coefficients are given by:
+\begin{align}
+h_i &= \frac{Q_{i,i}}{2} + \sum_{j \neq i} \frac{Q_{i,j}}{4}, \\
+J_{i,j} &= \frac{Q_{i,j}}{4}, \\
+\text{offset} &= \sum_{i} \frac{Q_{i,i}}{4} + \sum_{i<j} \frac{Q_{i,j}}{4}.
+\end{align}
+
+\section{Quantum-Inspired Algorithms}
+Quantum-inspired algorithms are classical algorithms that incorporate heuristics motivated by quantum mechanical principles. They execute on standard hardware in polynomial time and space, without simulating quantum mechanics. Two algorithms are implemented: the Quantum-Inspired Evolutionary Algorithm (QIEA) and Simulated Quantum Annealing (SQA).
+
+\subsubsection{Quantum-Inspired Evolutionary Algorithm (QIEA}
+QIEA, introduced represents candidate solutions using quantum probability amplitudes rather than classical bitstrings. Each individual in the population is a vector of qubit states:
+\begin{equation}
+\lvert \psi_i \rangle = \alpha_i \lvert 0 \rangle + \beta_i \lvert 1 \rangle, 
+\quad \text{where } \alpha_i^2 + \beta_i^2 = 1.
+\end{equation}
+
+The algorithm maintains a population of K such quantum individuals, each encoding a probability distribution over the n-bit decision space.
+Observation. At each generation, classical bitstrings are sampled from the amplitude distribution. For each bit i, the observed value is 1 with probability beta$_i^2$ and 0 with probability $alpha_i^2$. This sampling is vectorized for efficiency: probabilities are computed as a K x n matrix, compared against uniform random values, yielding K observed classical solutions per generation.
+Evaluation. Each observed bitstring x is evaluated by computing $x^T$ Q x (QUBO energy). The best solution found across all generations is maintained.
+Quantum rotation gate update. After evaluation, the Q-gate angles are rotated toward the best-known solution:
+
+\begin{equation}
+\Delta \theta = 0.01 \pi \cdot \max\!\left(0.1,\; 1 - \frac{g}{G}\right)
+\end{equation}
+
+where g is the current generation and G is the total number of generations. The rotation sign depends on the relationship between the current amplitude bias and the target bit value. This annealing-like schedule reduces the rotation magnitude over time, transitioning from exploration to exploitation. \textbf{Adaptive scaling}. Population size and generation count scale with the problem dimension:
+\begin{align}
+K &= \max\!\left(20,\; \min\!\left(50,\; \frac{n_{\text{bits}}}{4}\right)\right), \\
+G &= \max\!\left(200,\; \min\!\left(400,\; n_{\text{bits}}\right)\right).
+\end{align}
+
+This prevents both under-exploration for large problems and wasteful computation for small ones.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
+\label{alg:qiea}
+\begin{algorithmic}[1]
+
+\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, number of variables $n = N \cdot T$, number of machines $N$, number of time slots $T$
+\Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
+
+\Statex \textbf{// Adaptive parameter scaling}
+\State $K \gets \max\!\left(20,\; \min\!\left(50,\; \left\lfloor \frac{n}{4} \right\rfloor \right)\right)$
+\State $G \gets \max\!\left(200,\; \min\!\left(400,\; n \right)\right)$
+
+\Statex
+
+\Statex \textbf{// Initialise quantum population}
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \State $\alpha_{k,i} \gets \frac{1}{\sqrt{2}}$
+        \State $\beta_{k,i} \gets \frac{1}{\sqrt{2}}$
+    \EndFor
+\EndFor
+
+\State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
+
+\Statex
+
+\For{$g = 0$ to $G-1$}
+
+    \Statex \textbf{// Step 1: Observation}
+    \For{$k = 0$ to $K-1$}
+        \For{$i = 0$ to $n-1$}
+            \State $r \sim \mathcal{U}(0,1)$
+            \State $x_{k,i} \gets 
+            \begin{cases}
+            1, & r < \beta_{k,i}^2 \\
+            0, & \text{otherwise}
+            \end{cases}$
+        \EndFor
+    \EndFor
+
+    \Statex
+
+    \Statex \textbf{// Step 2: Evaluation}
+    \For{$k = 0$ to $K-1$}
+        \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
+        \If{$E_k < E^*$}
+            \State $E^* \gets E_k$
+            \State $\mathbf{x}^* \gets \mathbf{x}_k$
+        \EndIf
+    \EndFor
+
+    \Statex
+
+    \Statex \textbf{// Step 3: Update (Q-gate rotation)}
+    \State $\Delta \theta \gets 0.01\pi \cdot \max\!\left(0.1,\; 1 - \frac{g}{G}\right)$
+
+    \For{$k = 0$ to $K-1$}
+        \For{$i = 0$ to $n-1$}
+            \If{$x_{k,i} = x^*_i$}
+                \State \textbf{continue}
+            \EndIf
+
+            \If{$x^*_i = 1$}
+                \State $\text{sign} \gets 
+                \begin{cases}
+                +1, & \alpha_{k,i} \beta_{k,i} > 0 \\
+                -1, & \text{otherwise}
+                \end{cases}$
+            \Else
+                \State $\text{sign} \gets 
+                \begin{cases}
+                -1, & \alpha_{k,i} \beta_{k,i} > 0 \\
+                +1, & \text{otherwise}
+                \end{cases}$
+            \EndIf
+
+            \State $\delta \gets \text{sign} \cdot \Delta \theta$
+
+            \State $\alpha'_{k,i} \gets \cos(\delta)\,\alpha_{k,i} - \sin(\delta)\,\beta_{k,i}$
+            \State $\beta'_{k,i} \gets \sin(\delta)\,\alpha_{k,i} + \cos(\delta)\,\beta_{k,i}$
+
+            \State $\alpha_{k,i} \gets \alpha'_{k,i}$
+            \State $\beta_{k,i} \gets \beta'_{k,i}$
+        \EndFor
+    \EndFor
+
+\EndFor
+
+\State \Return $\mathbf{x}^*, E^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+The rotation gate (lines 45–49) is the core quantum-inspired mechanism. Unlike classical genetic algorithms that rely on crossover and mutation, QIEA evolves the probability distribution over solutions. The annealing schedule on Δθ (line 34) ensures broad exploration in early generations (large rotations) and fine-tuning in later generations (small rotations), analogous to the temperature schedule in simulated annealing but operating in the amplitude space.
+
+\section{Simulated Quantum Annealing (SQA)}
+SQA simulates quantum annealing using path-integral Monte Carlo. The quantum system with transverse field is mapped to a classical system with an additional (imaginary time) dimension via the Suzuki-Trotter decomposition. The algorithm maintains M = 16 classical replicas (Trotter slices) coupled by an inter-replica interaction:
+
+\begin{equation}
+J_{\perp} = -\frac{T_{\text{phys}}}{2} \, \ln\!\left( \tanh\!\left( \frac{\Gamma}{M \, T_{\text{phys}}} \right) \right)
+\end{equation}
+
+where Gamma is the transverse field strength and $T_phys$ is the physical temperature.
+
+\textbf{Annealing schedule.} The transverse field Gamma decreases linearly from $Gamma_start$ = 5.0 to $Gamma_end$ = 0.01 over S sweeps. At each sweep, single-spin Metropolis updates are proposed for each spin in each replica. The acceptance criterion accounts for both the problem Hamiltonian energy change and the inter-replica coupling:
+
+\begin{equation}
+\Delta E = 2 \, \sigma_i \left[
+h_i + \sum_{j} J_{i,j} \, \sigma_j + J_{\perp} \left( \sigma_i^{k-1} + \sigma_i^{k+1} \right)
+\right]
+\end{equation}
+
+where $sigma_i^{k-1}$ and $sigma_i^{k+1}$ are the spin values in adjacent replicas. The flip is accepted if $Delta_E$ < 0 or with probability $exp(-Delta_E / T_phys)$. \textbf{Sweep scaling}. The number of sweeps adapts to problem size:
+
+\begin{equation}
+S = \min\!\left(500,\; \max\!\left(200,\; \frac{500 \cdot 20}{n_{\text{bits}}}\right)\right)
+\end{equation}
+
+This caps computation time for large instances while maintaining sufficient sampling for small ones.
+
+The key distinction between SQA and classical simulated annealing lies in the inter-replica coupling term (lines 30–32). The M replicas interact through $J_⊥$, which encodes the effect of quantum tunneling in the Suzuki-Trotter decomposition. When Γ is large, $J_⊥$ is strong and replicas are tightly coupled (high quantum fluctuations); as Γ → 0, $J_⊥$ → 0 and replicas decouple, each converging independently to a classical minimum. The random permutation at line 19 prevents systematic bias in the sweep order.
+
+\section{Gate-Based Quantum Optimization (QAOA}
+\subsection{QAOA with XY Ring Mixer}
+The Quantum Approximate Optimization Algorithm (Farhi et al., 2014) constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al. (2019), we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
+
+\begin{algorithm}[htbp]
+\small
+\caption{QAOA with XY Mixer for Scheduling}
+\label{alg:qaoa_xy}
+\begin{algorithmic}[1]
+
+\Require local fields $\mathbf{h}$, couplings $\mathbf{J}$, machines $N$, time slots $T$, layers $p$, restarts $R$, max iterations $I$
+\Ensure best feasible solution $\mathbf{x}^*$ and cost $C^*$
+
+\State $n \gets N \cdot T$
+\State $\text{dim} \gets 2^n$
+
+\Statex \textbf{// Precompute Ising Hamiltonian diagonal}
+\For{$z = 0$ to $\text{dim}-1$}
+    \State $\boldsymbol{\sigma} \gets \text{spin\_vector}(z, n)$
+    \State $H_{\text{diag}}[z] \gets \sum_i h_i \sigma_i + \sum_{i<j} J_{i,j} \sigma_i \sigma_j$
+\EndFor
+
+\Statex
+
+\Statex \textbf{// Initial state: one-hot per machine}
+\State $\lvert \psi_{\text{init}} \rangle \gets \bigotimes_{m=1}^{N} \lvert 10\ldots 0 \rangle$
+
+\State $\gamma^* \gets \emptyset$, \quad $\boldsymbol{\beta}^* \gets \emptyset$, \quad $C^* \gets +\infty$
+
+\Statex
+
+\For{$r = 0$ to $R-1$}
+
+    \State $(\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0) \gets \text{random initial angles in } \mathbb{R}^p \times \mathbb{R}^p$
+
+    \Statex \textbf{// Define cost function}
+    \Function{QAOA\_Cost}{$\boldsymbol{\gamma}, \boldsymbol{\beta}$}
+        \State $\lvert \psi \rangle \gets \lvert \psi_{\text{init}} \rangle$
+        \For{$\ell = 0$ to $p-1$}
+
+            \State $\lvert \psi \rangle \gets e^{-i \gamma_\ell H_{\text{diag}}} \lvert \psi \rangle$
+
+            \For{$m = 0$ to $N-1$}
+                \For{$t = 0$ to $T-1$}
+                    \State $q_a \gets m \cdot T + t$
+                    \State $q_b \gets m \cdot T + (t+1) \bmod T$
+
+                    \State Apply XY($\beta_\ell$) on $(q_a, q_b)$:
+                    \Statex \hspace{2em}
+                    $\lvert 01 \rangle \rightarrow \cos(\beta_\ell)\lvert 01 \rangle - i\sin(\beta_\ell)\lvert 10 \rangle$
+                    \Statex \hspace{2em}
+                    $\lvert 10 \rangle \rightarrow -i\sin(\beta_\ell)\lvert 01 \rangle + \cos(\beta_\ell)\lvert 10 \rangle$
+                \EndFor
+            \EndFor
+
+        \EndFor
+
+        \State \Return $\sum_z |\langle z | \psi \rangle|^2 \cdot H_{\text{diag}}[z]$
+    \EndFunction
+
+    \State $(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) \gets \text{COBYLA}(\text{QAOA\_Cost}, (\boldsymbol{\gamma}_0, \boldsymbol{\beta}_0), I)$
+
+    \If{$\text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}}) < C^*$}
+        \State $C^* \gets \text{QAOA\_Cost}(\boldsymbol{\gamma}_{\text{opt}}, \boldsymbol{\beta}_{\text{opt}})$
+        \State $\boldsymbol{\gamma}^* \gets \boldsymbol{\gamma}_{\text{opt}}$
+        \State $\boldsymbol{\beta}^* \gets \boldsymbol{\beta}_{\text{opt}}$
+    \EndIf
+
+\EndFor
+
+\Statex
+
+\Statex \textbf{// Sampling best solution}
+\State $\lvert \psi_{\text{final}} \rangle \gets \text{QAOA}(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*)$
+\State $p(z) \gets |\langle z | \psi_{\text{final}} \rangle|^2$
+
+\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
+
+\For{top $200$ states $z$ sorted by $p(z)$}
+    \State $\mathbf{x} \gets \text{binary\_vector}(z, n)$
+
+    \State feasible $\gets$ true
+    \For{$m = 0$ to $N-1$}
+        \If{$\sum_{j=0}^{T-1} x_{mT+j} \neq 1$}
+            \State feasible $\gets$ false
+        \EndIf
+    \EndFor
+
+    \If{feasible \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
+        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
+        \State $\mathbf{x}^* \gets \mathbf{x}$
+    \EndIf
+\EndFor
+
+\State \Return $\mathbf{x}^*, \text{Cost}^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
+
+\begin{algorithm}[htbp]
+\small
+\caption{QAOA Hardware Execution Pipeline}
+\label{alg:qaoa_hardware}
+\begin{algorithmic}[1]
+
+\Require machines $\mathcal{M}$, time slots $T$, API token, quantum backend
+\Ensure best feasible solution $\mathbf{x}^*$ and cost $\text{Cost}^*$
+
+\Statex \textbf{// Phase 1: Parameter optimisation on reduced problem}
+\State $N_{\text{opt}} \gets \min(N, 4)$
+\State $\mathcal{M}_{\text{opt}} \gets \mathcal{M}[0 : N_{\text{opt}}]$
+\State $(\mathbf{h}_{\text{opt}}, \mathbf{J}_{\text{opt}}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}_{\text{opt}}, T)$
+\State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets \text{QAOA-XY}(\mathbf{h}_{\text{opt}}, \mathbf{J}_{\text{opt}}, N_{\text{opt}}, T, p, \text{restarts}, \text{max\_iter})$
+
+\Statex
+
+\Statex \textbf{// Phase 2: Build parameterised circuit}
+\State $n_{\text{qubits}} \gets N \cdot T$
+\State $qc \gets \text{QuantumCircuit}(n_{\text{qubits}})$
+
+\For{$m = 0$ to $N-1$}
+    \State $qc.x(m \cdot T)$
+\EndFor
+
+\State $(\mathbf{h}_{\text{full}}, \mathbf{J}_{\text{full}}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}, T)$
+
+\For{$\ell = 0$ to $p-1$}
+
+    \Statex \textbf{// Problem unitary}
+    \For{$i = 0$ to $n_{\text{qubits}}-1$}
+        \State $qc.\text{rz}(2 \gamma^*_\ell \, h_{\text{full}}[i],\; i)$
+    \EndFor
+
+    \For{all $(i,j)$ with $J_{\text{full}}[i,j] \neq 0$}
+        \State $qc.\text{cx}(i, j)$
+        \State $qc.\text{rz}(2 \gamma^*_\ell \, J_{\text{full}}[i,j],\; j)$
+        \State $qc.\text{cx}(i, j)$
+    \EndFor
+
+    \Statex \textbf{// XY ring mixer}
+    \For{$m = 0$ to $N-1$}
+        \For{$t = 0$ to $T-1$}
+            \State $q_a \gets m \cdot T + t$
+            \State $q_b \gets m \cdot T + (t+1) \bmod T$
+
+            \State $qc.\text{cx}(q_a, q_b)$
+            \State $qc.\text{ry}(2 \beta^*_\ell, q_a)$
+            \State $qc.\text{cx}(q_b, q_a)$
+            \State $qc.\text{ry}(-2 \beta^*_\ell, q_a)$
+            \State $qc.\text{cx}(q_a, q_b)$
+        \EndFor
+    \EndFor
+
+\EndFor
+
+\State $qc.\text{measure\_all}()$
+
+\Statex
+
+\Statex \textbf{// Phase 3: Execute on hardware}
+\State $qc_t \gets \text{transpile}(qc, \text{backend}, \text{optimization\_level}=3)$
+\State job $\gets \text{SamplerV2}(\text{backend}).\text{run}(qc_t, \text{shots}=4096)$
+\State counts $\gets \text{job.result}()$
+
+\Statex
+
+\Statex \textbf{// Phase 4: Decode and select solution}
+\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
+
+\For{each $(\text{bitstring}, \text{count})$ in counts}
+    \State $\mathbf{x} \gets \text{decode}(\text{bitstring})$
+
+    \If{$\text{is\_one\_hot}(\mathbf{x}, N, T)$ \textbf{and} $\text{is\_capacity\_ok}(\mathbf{x})$}
+        \If{$\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
+            \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
+            \State $\mathbf{x}^* \gets \mathbf{x}$
+        \EndIf
+    \EndIf
+\EndFor
+
+\State \Return $\mathbf{x}^*, \text{Cost}^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class (Brandao et al., 2018). The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
+Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 machines, T = 4 time options), showing the initial X-gate preparation, alternating problem unitary (RZ/RZZ) and XY ring mixer layers, and final measurement. Each machine's qubits form an independent block within the mixer, preserving one-hot feasibility.
+
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/images/pauliz-circuit-diagram.png}
-    \caption{Pauli-Z Multi-Sensor Risk Encoding Circuit for one machine: 5 qubits ($q_0$--$q_4$) correspond to temperature, vibration, humidity, pressure, and energy sensors with weights 0.30, 0.30, 0.15, 0.15, and 0.10 respectively. Gate sequence: Hadamard (H, blue) creates superposition; $R_Z(\theta=\pi\cdot\mathrm{norm})$ (orange) encodes normalised sensor value as rotation angle; CNOT (green) entangles adjacent sensor qubits to capture inter-sensor correlations; measurement (purple) collapses the state. Per-sensor Pauli-Z expectation $\langle Z_i \rangle = \cos(\pi\cdot\mathrm{norm}_i)$ maps the safe zone to $+1$, the warning zone to $0$, and the danger zone to $-1$. The composite weighted expectation $\langle Z \rangle_c$ (Equation~\ref{eq:composite_z}) determines the quantum risk label for each machine. \textbf{Disclosure:} This circuit is a mathematical abstraction; the actual implementation is a classical heuristic.}
-    \label{fig:pauliz_circuit}
+    \includegraphics[width=1\textwidth]{figures/images/fig7_qaoa_circuit.png}
+    \caption{QOAO Circuit.}
+    \label{fig:qoao-cirquit}
 \end{figure}
+
+\section{Classical Simulation (State Vector}
+For validation and parameter optimization, the QAOA circuit is simulated using numpy state-vector computation. The state vector has dimension $2^n$, where n = N * T is the number of qubits. This limits classical simulation to approximately N <= 4 machines (16 qubits, 65,536 states) due to exponential memory scaling. Variational parameters $$(gamma_l, beta_l)$ for l = 1, ..., p are optimized using COBYLA with multiple random restarts. The cost function is the expectation value of the problem Hamiltonian:
+
+\begin{equation}
+C(\boldsymbol{\gamma}, \boldsymbol{\beta}) 
+= \langle \psi(\boldsymbol{\gamma}, \boldsymbol{\beta}) \mid H_C \mid \psi(\boldsymbol{\gamma}, \boldsymbol{\beta}) \rangle
+= \sum_{z} \left| \langle z \mid \psi \rangle \right|^2 \, E_z
+\end{equation}
+
+After optimization, the state is sampled and the lowest-energy feasible bitstring is selected.
+
+\section{IBM Quantum Hardware Execution}
+For problem sizes beyond classical simulation limits, the QAOA circuit is executed on real quantum hardware via IBM Quantum Platform. The implementation targets IBM Heron r2 processors $(ibm_fez, 156 qubits)$.
+\textbf{Parameter transfer}. Variational parameters are optimized on a classical simulator using a reduced problem (4 machines), then transferred to the full-size circuit. This avoids expensive on-device optimization loops while providing good initial angles (Brandao et al., 2018). \textbf{Transpilation}. The abstract circuit is transpiled to the hardware's native gate set (CZ, SX, RZ) and qubit connectivity using Qiskit's transpiler at optimization level 3. This step introduces routing overhead: additional SWAP gates to satisfy the hardware's coupling map. \textbf{Execution}. The transpiled circuit is executed using SamplerV2 via Qiskit Runtime. Measurement results (4096 shots) are decoded to bitstrings, checked for feasibility, and the lowest-cost feasible solution is selected.
+Noise effects. Hardware noise causes decoherence, reducing solution quality. The estimated circuit fidelity scales as:
+\begin{equation}
+F_{\text{est}} = (1 - \epsilon_{\text{CZ}})^{n_{\text{CZ}}}
+\end{equation}
+
+where $epsilon_CZ$ is approximately 0.004 (CZ gate error rate) and $n_CZ$ is the number of CZ gates after transpilation. For large circuits, this fidelity decays exponentially, establishing a noise-scaling frontier beyond which the output degrades to uniform random noise.
+
+\section{Classical Baseline : MILP / CBC}
+The Mixed-Integer Linear Programming formulation serves as the optimality benchmark. To ensure fair comparison, the MILP uses the same T discrete time slots as the quantum approaches, rather than all 72 hourly slots. The formulation is:
+\begin{equation}
+\begin{aligned}
+\min_{\{M_{i,t}\}} \quad 
+& \sum_{i,t} \left[
+C_{\text{maint}} \, M_{i,t} 
++ C_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{t \cdot s}{H} \, M_{i,t}
+\right] \\
+\text{s.t.} \quad
+& \sum_{t} M_{i,t} = 1, \quad \forall i \quad \text{(one-hot)} \\
+& \sum_{i} M_{i,t} \leq C, \quad \forall t \quad \text{(capacity)} \\
+& M_{i,t} \in \{0,1\}.
+\end{aligned}
+\end{equation}
+
+where s = H / T is the slot duration in hours. This is solved by the CBC solver (COIN-OR Branch and Cut), which guarantees global optimality for moderate-scale instances.
+
+\section{Experimental Results}
+\subsection{Experiment Setup}
+All experiments use a common problem generator with deterministic random seeds for reproducibility. Machine priority scores are drawn uniformly from [20, 100], and approximately 30\% of machines are flagged as $risk_state$ = True. The cost parameters are $C_maint$ = 100, $C_risk$ = 1000, with capacity C = 3 and maintenance duration 4 hours.
+The pure scheduling cost (without penalty terms) is used as the comparison metric across all methods:
+
+\begin{equation}
+\text{Cost}_{\text{pure}} 
+= \sum_{i} \left[
+C_{\text{maint}} 
++ C_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{\text{start}_i}{72}
+\right]
+\end{equation}
+
+This metric is directly comparable across MILP, quantum-inspired, and quantum methods, as it excludes the QUBO penalty terms that are internal to the quantum formulations.
+
+\subsection{Unified Benchmark (N = 3 - 100}
+Table 1 presents results from the unified benchmark comparing all methods on the same problem instances.
+
 \begin{table}[htbp]
 \centering
-\caption{Heuristic Layer Assessment for All 7 Machines (Classical Implementation)}
-\label{tab:heuristic_layer}
-\begin{tabular}{lccclcc}
-\hline
-\textbf{Machine} & \textbf{$\langle Z \rangle_c$} & \textbf{Q-Risk Score} & \textbf{QUBO Rank} & \textbf{Q-Label} & \textbf{Slot} \\
-\hline
-M-32 & $-$0.0287 & 0.5144 & \#1 & QUANTUM-WARN   & B (Planned) \\
-M-1  & $-$0.0014 & 0.5007 & \#2 & QUANTUM-WARN   & A (Urgent) \\
-M-2  & $+$0.0978 & 0.4511 & \#3 & QUANTUM-WARN   & A (Urgent) \\
-M-40 & $+$0.1059 & 0.4470 & \#4 & QUANTUM-WARN   & B (Planned) \\
-M-4  & $+$0.2863 & 0.3568 & \#5 & QUANTUM-WARN   & A (Urgent) \\
-M-3  & $+$0.2920 & 0.3540 & \#6 & QUANTUM-WARN   & A (Urgent) \\
-M-47 & $+$0.3608 & 0.3196 & \#7 & QUANTUM-MARGINAL & B (Planned) \\
-\hline
-\multicolumn{5}{l}{\textit{QUBO selected (most urgent): M-32 | QUBO energy: $-$0.5144}} \\
-\multicolumn{5}{l}{\textit{Heuristic overrides triggered: 5 out of 7 machines}} \\
-\hline
-\end{tabular}
+\caption{Unified Benchmark Results}
+\label{tab:benchmark}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{
+c c c c c c c c c
+}
+\toprule
+\textbf{N} & \textbf{n\_bits} & \textbf{MILP Cost} & \textbf{MILP Time} 
+& \textbf{QIEA Cost} & \textbf{QIEA Time} & \textbf{QIEA Gap} 
+& \textbf{QAOA/sim Cost} & \textbf{QAOA/sim Time} \\
+\midrule
+
+3  & 12 & 300.00 & 6 ms     & 300.00 & 35 ms    & 0.0\%  & 300.00 & 15{,}217 ms \\
+5  & 20 & 642.50 & 6 ms     & 1{,}046.50 & 50 ms & 62.9\% & --- & --- \\
+7  & 28 & 1{,}248.25 & 6 ms & 2{,}252.00 & 75 ms & 80.4\% & --- & --- \\
+10 & 50 & 2{,}060.69 & infeasible & 110 ms & --- & --- & --- & --- \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.5em}
+\footnotesize
+\textit{Note: QAOA/sim is limited to $N \leq 4$ due to state-vector memory constraints. 
+Gap is computed as $(\text{Cost}_{\text{method}} - \text{Cost}_{\text{MILP}})/\text{Cost}_{\text{MILP}} \times 100\%$. 
+Dashes (---) indicate that the method was not executed at that scale.}
+
 \end{table}
-The QUBO local search with minimum energy $-0.5144$ selects Machine~32 as the highest-priority machine, driven by its humidity Pauli-Z value of $-$0.8704 --- the sensor value closest to the heuristic danger threshold of $-1$ in the entire experimental batch. The greedy graph-message-passing scheduler partitions machines such that machines with higher heuristic risk scores and QUBO selections are prioritized for Slot~A. The heuristic override mechanism triggers for 5 out of 7 machines (M-1, M-2, M-3, M-4, M-32, M-40), escalating them from passive monitoring to active inspection or scheduled maintenance despite classical LOW or borderline MEDIUM risk levels.
 
+At N = 3, both QIEA and QAOA/sim achieve the exact MILP optimum (gap = 0.0\%), validating the correctness of the QUBO formulation and solver implementations. For larger instances, QAOA simulation becomes infeasible due to $O(2^n)$ memory requirements, while QIEA remains tractable with gaps of 63-80\%. Figure 3 visualizes this comparison across all methods.
 
-\section{Mathematical Formulations of Quantum Computing Models}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/images/fig3_unified_benchmark.png}
+    \caption{Unified Benchmark - All Methods Comparison.}
+    \label{fig:qoao-cirquit}
+\end{figure}
 
-\subsection{Qubit State Representation and Bloch Sphere}
+\subsection{Scaling Benchmark (N = 5 to 30}
 
-A single qubit state is a unit vector in $\mathbb{C}^2$:
-\begin{equation}
-    |\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \quad |\alpha|^2 + |\beta|^2 = 1
-    \label{eq:qubit}
-\end{equation}
-In the Bloch sphere parameterisation, $|\psi\rangle = \cos(\theta/2)|0\rangle + e^{i\phi}\sin(\theta/2)|1\rangle$, where $\theta \in [0,\pi]$ is the polar angle and $\phi \in [0, 2\pi)$ is the azimuthal angle. The Pauli-Z operator and its expectation for this state are:
-\begin{equation}
-    Z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}, \qquad
-    \langle Z \rangle = \langle\psi|Z|\psi\rangle = |\alpha|^2 - |\beta|^2 = \cos\theta
-    \label{eq:pauli_z_exp}
-\end{equation}
-This shows that $\langle Z \rangle = +1$ when $\theta = 0$ (qubit in $|0\rangle$, safe zone) and $\langle Z \rangle = -1$ when $\theta = \pi$ (qubit in $|1\rangle$, danger zone).
+Table \ref{tab:scaling} presents the extended scaling study comparing MILP, QIEA, and SQA across larger problem instances.
 
-\subsection{Hadamard and $R_Z$ Gate Derivation}
-
-The Hadamard gate creates an equal superposition from the computational basis states:
-\begin{equation}
-    H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}, \qquad
-    H|0\rangle = \frac{1}{\sqrt{2}}(|0\rangle + |1\rangle), \quad
-    H|1\rangle = \frac{1}{\sqrt{2}}(|0\rangle - |1\rangle)
-    \label{eq:hadamard}
-\end{equation}
-After $H$ is applied to $|0\rangle$, the qubit is in the $|+\rangle$ state on the equator of the Bloch sphere ($\theta = \pi/2$, $\langle Z \rangle = 0$). The $R_Z(\theta)$ rotation gate rotates the qubit around the $Z$-axis of the Bloch sphere:
-\begin{equation}
-    R_Z(\theta) = e^{-i\theta Z/2} = \begin{pmatrix} e^{-i\theta/2} & 0 \\ 0 & e^{i\theta/2} \end{pmatrix}
-    \label{eq:rz_gate}
-\end{equation}
-Applying $R_Z(\pi \cdot \text{norm})$ to $H|0\rangle = \frac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$ gives:
-\begin{equation}
-    R_Z(\pi \cdot \text{norm}) \cdot H|0\rangle = \frac{1}{\sqrt{2}}\begin{pmatrix} e^{-i\pi\,\text{norm}/2} \\ e^{+i\pi\,\text{norm}/2} \end{pmatrix}
-    \label{eq:rz_applied}
-\end{equation}
-The Pauli-Z expectation of this state is:
-\begin{equation}
-    \langle Z_i \rangle = \left\langle R_Z(\pi\,\text{norm}_i) H |0\rangle \,\Big|\, Z \,\Big|\, R_Z(\pi\,\text{norm}_i) H |0\rangle \right\rangle = \cos(\pi \cdot \text{norm}_i)
-    \label{eq:z_expectation_derivation}
-\end{equation}
-This derivation confirms the analytical result used in the \texttt{PauliZRiskEncoder}: the $\langle Z \rangle$ value is entirely determined by the normalised sensor value and the $R_Z$ rotation angle, without requiring measurement shots for the expectation calculation. The CNOT entanglement gates act after the $R_Z$ layer and do not alter the marginal $\langle Z_i \rangle$ values (since CNOT preserves the Z-basis marginals), but they introduce off-diagonal correlations in the joint density matrix $\rho = |\psi\rangle\langle\psi|$ that represent multi-sensor coupling.
-
-\subsection{Composite Pauli-Z Expectation and Risk Classification}
-
-The five-qubit state after the full $H$--$R_Z$--CNOT circuit is:
-\begin{equation}
-    |\Psi\rangle = \text{CNOT}_{34} \cdot \text{CNOT}_{23} \cdot \text{CNOT}_{12} \cdot \text{CNOT}_{01}
-    \cdot \bigotimes_{i=0}^{4} R_Z(\pi\,\text{norm}_i) H |0\rangle
-    \label{eq:full_circuit_state}
-\end{equation}
-The composite weighted Pauli-Z expectation is:
-\begin{equation}
-    \langle Z \rangle_c = \sum_{i=0}^{4} w_i \langle Z_i \rangle = \sum_{i=0}^{4} w_i \cos(\pi \cdot \text{norm}_i)
-    \label{eq:composite_z_full}
-\end{equation}
-with weights $\mathbf{w} = (0.30, 0.30, 0.15, 0.15, 0.10)$ summing to 1.0. The partial derivatives with respect to normalised sensor values provide sensitivity analysis:
-\begin{equation}
-    \frac{\partial \langle Z \rangle_c}{\partial \text{norm}_i} = -\pi w_i \sin(\pi \cdot \text{norm}_i)
-    \label{eq:z_sensitivity}
-\end{equation}
-This derivative is maximised in magnitude at $\text{norm}_i = 0.5$ (the marginal zone boundary), meaning the quantum risk indicator is most sensitive to sensor changes when sensors are operating near the mid-range threshold --- precisely the sub-threshold regime that classical binary indicators would classify as non-anomalous. At $\text{norm}_i = 0$ or $\text{norm}_i = 1$, the derivative is zero, reflecting the saturation of the cosine function at its extremes.
-
-The four risk labels are defined by thresholds on $\langle Z \rangle_c$:
-\begin{equation}
-    \text{label} = \begin{cases}
-        \texttt{QUANTUM-ANOMALY}  & \langle Z \rangle_c < -0.20 \\
-        \texttt{QUANTUM-WARN}     & -0.20 \leq \langle Z \rangle_c < 0.30 \\
-        \texttt{QUANTUM-MARGINAL} & 0.30 \leq \langle Z \rangle_c < 0.60 \\
-        \texttt{QUANTUM-NORMAL}   & \langle Z \rangle_c \geq 0.60
-    \end{cases}
-    \label{eq:risk_labels}
-\end{equation}
-These thresholds correspond to the following normalised sensor profiles: \texttt{QUANTUM-ANOMALY} is triggered when the weighted average sensor normalisation exceeds approximately $\text{norm}_{\text{eff}} \approx \arccos(-0.20)/\pi \approx 0.564$, meaning that sensors are collectively operating above 56.4\% of their danger-zone boundary. \texttt{QUANTUM-NORMAL} requires $\text{norm}_{\text{eff}} \lesssim \arccos(0.60)/\pi \approx 0.295$, meaning sensors are collectively below 29.5\% of their range.
-
-\subsection{QUBO Energy Function and Annealing Schedule}
-
-The QUBO energy function (Equation~\ref{eq:qubo}) can be written in full matrix form as:
-\begin{equation}
-    E(\mathbf{x}) = \mathbf{x}^T Q \mathbf{x} = -\sum_{i} w_i x_i + \frac{\lambda}{2}\sum_{i \neq j} x_i x_j
-    \label{eq:qubo_full}
-    \label{eq:qubo}
-\end{equation}
-where $Q_{ii} = -w_i$ (diagonal: reward selection of machine $i$ proportional to its quantum risk score) and $Q_{ij} = \lambda/2$ for $i \neq j$ (off-diagonal: penalise co-selection). With $\lambda = 1.5$, the penalty for selecting two machines simultaneously is $\Delta E_{\text{pair}} = 2 \times (\lambda/2) = 1.5$, which must be outweighed by the combined risk reward $w_i + w_j$ for the pair to be selected. This means only machines with combined quantum risk $w_i + w_j > 1.5$ would be co-selected in the minimum-energy solution.
-
-The simulated annealing schedule uses exponential cooling:
-\begin{equation}
-    T_k = T_0 \cdot \alpha^k, \quad \alpha = \exp\!\left(\frac{\ln(T_{\min}/T_0)}{K}\right)
-    \label{eq:sa_schedule}
-\end{equation}
-where $T_0 = 5.0$, $T_{\min} = 10^{-4}$, and $K = 500$ iterations. This gives $\alpha = \exp(\ln(10^{-4}/5)/500) = \exp(-0.01897) \approx 0.9812$. The Metropolis acceptance criterion for an energy-increasing move $\Delta E > 0$ is:
-\begin{equation}
-    P(\text{accept}) = \exp\!\left(-\frac{\Delta E}{T_k}\right)
-    \label{eq:metropolis}
-\end{equation}
-At the initial temperature $T_0 = 5.0$, a move with $\Delta E = 1.0$ is accepted with probability $\exp(-0.2) \approx 0.82$, encouraging broad exploration. At the final temperature $T_{\min} = 10^{-4}$, the same move is accepted with probability $\exp(-10^4) \approx 0$, enforcing convergence to a local minimum.
-
-\subsection{QAOA Hamiltonian and Variational Optimisation}
-\begin{equation}
-    H_P = \frac{1}{2} \sum_{(i,j) \in E} (I - Z_i Z_j) - \sum_i r_i \cdot 0.3 \cdot Z_i
-    \label{eq:qaoa_hamiltonian}
-\end{equation}
-The QAOA problem Hamiltonian (Equation~\ref{eq:qaoa_hamiltonian}) can be expanded for the $n$-machine scheduling problem. The MaxCut term for edge $(i,j)$ contributes:
-\begin{equation}
-    H_{ij}^{\text{cut}} = \frac{1}{2}(I - Z_i Z_j)
-    \label{eq:maxcut_term}
-\end{equation}
-This term equals 0 when both qubits are in the same state ($Z_i Z_j = +1$, same slot) and 1 when they are in opposite states ($Z_i Z_j = -1$, different slots), implementing the MaxCut objective of separating conflicting machines. The Pauli-Z bias term for high-risk machine $i$ is:
-\begin{equation}
-    H_i^{\text{bias}} = -r_i \cdot 0.3 \cdot Z_i
-    \label{eq:bias_term}
-\end{equation}
-Since $Z|0\rangle = +|0\rangle$ (Slot~A), the term $-r_i \cdot 0.3 \cdot Z_i$ lowers the energy when qubit $i$ is in state $|0\rangle$ (Slot~A) proportionally to risk $r_i$, biasing high-risk machines toward immediate maintenance.
-
-The QAOA ansatz with $p$ repetitions alternates between the problem unitary $U_C(\gamma) = e^{-i\gamma H_P}$ and the mixing unitary $U_B(\beta) = e^{-i\beta \sum_i X_i}$ (where $X_i$ is the Pauli-X operator on qubit $i$):
-\begin{equation}
-    |\gamma, \beta\rangle = U_B(\beta_p) U_C(\gamma_p) \cdots U_B(\beta_1) U_C(\gamma_1) |+\rangle^{\otimes n}
-    \label{eq:qaoa_state}
-\end{equation}
-starting from the equal superposition state $|+\rangle^{\otimes n} = H^{\otimes n}|0\rangle^{\otimes n}$. The variational optimisation minimises the expected energy:
-\begin{equation}
-    \{\gamma^*, \beta^*\} = \arg\min_{\gamma,\beta} \langle \gamma, \beta | H_P | \gamma, \beta \rangle
-    \label{eq:qaoa_opt}
-\end{equation}
-via COBYLA (Constrained Optimisation by Linear Approximation), a derivative-free method that constructs linear approximations to the objective using a trust region of radius $\rho = 0.5$, with maximum 150 iterations. The final maintenance slot assignment is obtained by measuring the optimal state $|\gamma^*, \beta^*\rangle$ with 1024 shots and selecting the most frequently observed bitstring: qubit $i$ in state 0 assigns machine $i$ to Slot~A (IMMEDIATE/URGENT); state 1 assigns it to Slot~B (PLANNED/ROUTINE).
-
-
-\section{Classical Heuristic Disclosure}
-\label{sec:heuristic_disclosure}
-
-Table~\ref{tab:heuristic_disclosure} provides the post-audit algorithmic disclosure for the three components previously marketed under quantum labels. All are implemented as pure-Python classical heuristics in \texttt{classical\_optimization.py}.
 \begin{table}[htbp]
 \centering
-\caption{Classical Heuristic Disclosure (Enhanced Pipeline)}
-\label{tab:heuristic_disclosure}
-\begin{tabular}{lll}
-\hline
-\textbf{Component} & \textbf{Algorithm} & \textbf{Disclosure} \\
-\hline
-Anomaly Detection & \texttt{energy\_distance\_anomaly\_score} & Normalized L2 distance from training-set median. NOT a quantum algorithm. \\
-Graph Correlation & \texttt{graph\_message\_passing\_score} & Weighted neighbor averaging on existing T-GCN adjacency. NOT a quantum algorithm. \\
-Scheduling & \texttt{random\_constrained\_search} & Greedy seed + random 1-bit-flip local search. NOT a quantum algorithm. \\
-\hline
-\end{tabular}
+\caption{Fair comparison with all machines needing maintenance. SQA skipped for N > 10 due to timeout. Per-machine cost ratio: QIEA averages 1.5-2.2x MILP cost.}
+\label{tab:scaling}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{
+c c c c c c c
+}
+\toprule
+\textbf{N} & \textbf{n\_time\_options} & \textbf{MILP Cost} 
+& \textbf{QIEA Cost} & \textbf{QIEA Gap} 
+& \textbf{SQA Cost} & \textbf{SQA Gap} \\
+\midrule
+
+5  & 4  & 531.67   & 813.25   & 53.0\%  & 1{,}100.75 & 107.0\% \\
+10 & 5  & 1{,}303.06 & 2{,}563.14 & 96.7\%  & 3{,}264.11 & 150.5\% \\
+15 & 6  & 2{,}180.44 & 4{,}713.17 & 116.2\% & --- & --- \\
+20 & 9  & 3{,}221.61 & 7{,}070.89 & 119.5\% & --- & --- \\
+25 & 11 & 4{,}489.89 & 7{,}348.25 & 63.7\%  & --- & --- \\
+30 & 13 & 6{,}413.56 & 10{,}317.57 & 60.9\% & --- & --- \\
+
+\bottomrule
+\end{tabularx}
+
+\vspace{0.5em}
+\footnotesize
+\textit{Note: Gap is computed as $(\text{Cost}_{\text{method}} - \text{Cost}_{\text{MILP}})/\text{Cost}_{\text{MILP}} \times 100\%$. 
+Dashes (---) indicate that the method was not executed at that scale.}
+
 \end{table}
 
+\begin{figure}[htbp]
+    \centering
 
-\section{Discussion}
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/images/fig1_solution_quality_scaling.png}
+        \caption{Quality Solution}
+        \label{fig:quality_scaling}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/images/fig2_optimality_gap.png}
+        \caption{Gap Optimality}
+        \label{fig:gap_optimality}
+    \end{subfigure}
 
-\subsection{Heuristic-Augmented Agentic Pipeline}
+    \caption{The scaling trend of solution quality, and presents the optimality gap alongside the number of time options.}
+    \label{fig:scaling-optimality}
+\end{figure}
 
-The quantum-inspired classical heuristic layer changes the decision profile of the agentic pipeline in the 7-machine demonstration. The QUBO local search identifies Machine~32 as the highest-priority machine (heuristic risk = 0.5144, energy = $-$0.5144), driven by its humidity Pauli-Z value of $-$0.8704 --- the sensor value closest to the heuristic danger threshold of $-1$ in the entire experimental batch. This diagnosis aligns with the classical evidence (humidity WARN at 74.35\%) but provides a more precise, quantitative danger signal: the Pauli-Z value of $-$0.8704 places Machine~32's humidity sensor at 93.5\% of the way from the safe zone ($\langle Z \rangle = +1$) to the danger zone ($\langle Z \rangle = -1$), a level of precision that classical binary WARN/CRITICAL threshold crossing does not provide. \textbf{Algorithmic disclosure:} These values are computed by the classical \texttt{energy\_distance\_anomaly\_score} function; no quantum circuit is executed.
+The per-machine average cost reveals an important trend:
 
-The greedy graph-message-passing scheduler partitions machines such that machines with higher heuristic risk scores and QUBO selections are prioritized for Slot~A. The heuristic override mechanism triggers for 5 out of 7 machines (M-1, M-2, M-3, M-4, M-32, M-40), escalating them from passive monitoring to active inspection or scheduled maintenance despite classical LOW or borderline MEDIUM risk levels. Machine~47, classified as QUANTUM-MARGINAL ($\langle Z \rangle_c = +0.3608$, heuristic risk = 0.3196) and ranked last by QUBO, correctly receives passive monitoring --- demonstrating that the heuristic layer does not indiscriminately escalate all machines, but rather applies a principled risk quantification that preserves the selectivity essential for operational credibility.
+\begin{table}[htbp]
+\centering
+\caption{Per-Machine Cost Comparison (MILP vs QIEA)}
+\label{tab:per_machine}
+\renewcommand{\arraystretch}{1.2}
 
-The dramatic improvement in machine coverage (from 14.3\% to 85.7\%) is the most striking difference in the 7-machine demonstration. This expansion in active decision coverage, achieved without changing the classical risk thresholds, demonstrates that the heuristic layer functions as a sensitivity amplification mechanism that detects genuine risk signals at sensor value combinations below the classical warning boundaries. \textbf{Critical caveat:} This demonstration involves a small, fixed sample of 7 machines. On the held-out 25-machine test split, the agentic pipeline --- with or without heuristic enhancement --- achieves F1=0.00, identical to the rule-based baseline. The heuristic override improves demonstrative coverage but does not solve the fundamental generalisation problem on unseen data.
+\begin{tabularx}{0.8\textwidth}{
+c c c c
+}
+\toprule
+\textbf{N} & \textbf{MILP per Machine} & \textbf{QIEA per Machine} & \textbf{Ratio} \\
+\midrule
 
-The 72.7\% false positive rate recorded in the heuristic-augmented feedback log (compared to 0\% for the non-augmented run) requires careful interpretation. In the context of this experiment, a false positive is a heuristic-override-driven inspection action where no classical-level failure was confirmed in the immediate feedback. This elevated false positive rate reflects the heuristic layer's inherently conservative design: it is calibrated to minimize false negatives (missed failures) at the cost of some false positives (unnecessary inspections). The Learning Loop addresses this explicitly through its threshold relaxation mechanism, which is triggered when the false positive rate exceeds 40\%. In the experimental run, a false positive rate of 72.7\% would immediately trigger threshold relaxation in the next decision cycle, beginning the adaptive process of calibrating the heuristic override sensitivity to the specific operating context of the monitored machine pool.
+5  & 106.33 & 162.65 & 1.53x \\
+10 & 130.31 & 256.31 & 1.97x \\
+15 & 145.36 & 314.21 & 2.16x \\
+20 & 161.08 & 353.54 & 2.19x \\
+25 & 179.60 & 293.93 & 1.64x \\
+30 & 213.79 & 343.92 & 1.61x \\
 
-\subsection{Limitations of Quantum Heuristics}
+\bottomrule
+\end{tabularx}
 
-The most significant limitation is that all ``quantum'' components in the current QASAMAP implementation (Ver13) are classical heuristics, not genuine quantum algorithms. The \texttt{PauliZRiskEncoder} is a normalized L2 distance anomaly score; the \texttt{QuantumAnnealingOptimizer} is a random constrained local search; and the \texttt{QAOAScheduler} is a greedy graph-message-passing scheduler. These heuristics are intentionally designed to mirror the mathematical structure of their quantum counterparts so that they can be replaced by genuine quantum circuits when hardware maturity permits. The experimental results reported in this thesis therefore reflect \textbf{classical heuristic performance}, not execution on a quantum processor. Earlier thesis drafts incorrectly described these components as executed on quantum hardware via Qiskit Aer; the post-audit rewrite (2026-05) corrects this misrepresentation.
+\end{table}
 
-The experimental evaluation of the quantum-agentic pipeline used a representative sample of 11 sensor events across 7 machines, which is sufficient to demonstrate the decision-making behavior of the full pipeline but does not constitute a large-scale statistical evaluation over the full 100,000-observation dataset. Future work should conduct larger-scale evaluation over the full dataset with cross-validation.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/images/fig6_per_machine_cost.png}
+    \caption{Machine Cost Analysis.}
+    \label{fig:macine-cost}
+\end{figure}
 
-\subsection{Future Quantum Hardware Migration}
-
-The most immediately impactful future direction is the evaluation of the QASAMAP quantum computing components on physical quantum hardware. The IBM Quantum Network, Google Quantum AI, and IonQ platforms offer processors with 27--127 qubits that approach the specifications required for the quantum circuits implemented in this thesis. Executing the Pauli-Z encoding circuits, QUBO annealing, and QAOA scheduler on physical hardware, characterizing noise-induced performance degradation, and developing hardware-specific error mitigation strategies would constitute a direct and important extension of the present work.
-
-The circuit diagrams, Hamiltonian formulations, and bitstring interpretations are retained as mathematical abstractions that would map directly to quantum gate operations when sufficient fault-tolerant quantum capacity becomes available. The 5-qubit Pauli-Z encoding circuit (Figure~\ref{fig:pauliz_circuit}) requires 5 qubits with $H$, $R_Z$, and CNOT gates --- all standard operations on current NISQ devices. The QUBO annealing problem for 50 machines requires embedding a dense 50-node graph onto the hardware topology, which is feasible on D-Wave Advantage systems with 5,000+ qubits. The QAOA scheduling Hamiltonian (Equation~\ref{eq:qaoa_hamiltonian}) requires $n = 50$ qubits with $p \approx 3$--5 repetitions, which is within the reach of IBM's 127-qubit Eagle processors.
-
-
-\section{Summary}
-
-This chapter presented the quantum-inspired classical heuristic layer and its mathematical formulations. The Pauli-Z multi-sensor encoding produces a composite risk indicator $\langle Z \rangle_c$ that detects sub-threshold risk combinations missed by classical single-sensor thresholds. The QUBO-formulated local search identifies Machine~32 as the highest-priority machine (energy $-0.5144$), and the QAOA-formulated graph scheduling partitions the 7-machine pool into urgent and planned maintenance slots. The heuristic override mechanism triggers for 5 out of 7 machines, expanding active decision coverage from 14.3\% to 85.7\%. \textbf{Critical disclosure:} All components are classical heuristics that preserve quantum mathematical structures for future hardware migration; none are executed on quantum processors. The experimental results therefore reflect classical heuristic performance.
+\subsection{IBM Quantum Hardware Results}
+Table 4 summarizes the QAOA scaling study executed on the IBM Heron r2 processor $(ibm_fez$, 156 qubits) with p = 4 QAOA layers and 4,096 measurement shots per run.
