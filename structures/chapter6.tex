@@ -158,7 +158,7 @@ J_{i,j} &= \frac{Q_{i,j}}{4}, \\
 Quantum-inspired algorithms are classical algorithms that incorporate heuristics motivated by quantum mechanical principles. They execute on standard hardware in polynomial time and space, without simulating quantum mechanics. Two algorithms are implemented: the Quantum-Inspired Evolutionary Algorithm (QIEA) and Simulated Quantum Annealing (SQA).
 
 \subsubsection{Quantum-Inspired Evolutionary Algorithm (QIEA)}
-QIEA, introduced represents candidate solutions using quantum probability amplitudes rather than classical bitstrings. Each individual in the population is a vector of qubit states:
+QIEA \cite{HanKim2002} represents candidate solutions using quantum probability amplitudes rather than classical bitstrings. Each individual in the population is a vector of qubit states:
 \begin{equation}
 \lvert \psi_i \rangle = \alpha_i \lvert 0 \rangle + \beta_i \lvert 1 \rangle, 
 \quad \text{where } \alpha_i^2 + \beta_i^2 = 1.
@@ -255,7 +255,7 @@ This prevents both under-exploration for large problems and wasteful computation
 The rotation gate (lines 45–49) is the core quantum-inspired mechanism. Unlike classical genetic algorithms that rely on crossover and mutation, QIEA evolves the probability distribution over solutions. The annealing schedule on Δθ (line 34) ensures broad exploration in early generations (large rotations) and fine-tuning in later generations (small rotations), analogous to the temperature schedule in simulated annealing but operating in the amplitude space.
 
 \section{Simulated Quantum Annealing (SQA)}
-SQA simulates quantum annealing using path-integral Monte Carlo. The quantum system with transverse field is mapped to a classical system with an additional (imaginary time) dimension via the Suzuki-Trotter decomposition. The algorithm maintains M = 16 classical replicas (Trotter slices) coupled by an inter-replica interaction:
+SQA \cite{KadowakiNishimori1998} simulates quantum annealing using path-integral Monte Carlo. The quantum system with transverse field is mapped to a classical system with an additional (imaginary time) dimension via the Suzuki-Trotter decomposition. The algorithm maintains M = 16 classical replicas (Trotter slices) coupled by an inter-replica interaction:
 
 \begin{equation}
 J_{\perp} = -\frac{T_{\text{phys}}}{2} \, \ln\!\left( \tanh\!\left( \frac{\Gamma}{M \, T_{\text{phys}}} \right) \right)
@@ -283,7 +283,7 @@ The key distinction between SQA and classical simulated annealing lies in the in
 
 \section{Gate-Based Quantum Optimization (QAOA)}
 \subsection{QAOA with XY Ring Mixer}
-The Quantum Approximate Optimization Algorithm (Farhi et al., 2014) constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al. (2019), we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
+The Quantum Approximate Optimization Algorithm \cite{Farhi2014} constructs a parameterized quantum circuit that alternates between a problem unitary and a mixing unitary. The standard QAOA uses a transverse-field mixer (sum of X gates), which does not respect the one-hot constraint. Following Hadfield et al.\ \cite{Hadfield2019}, we employ an XY ring mixer that structurally preserves the Hamming weight within each machine's qubit block.
 
 \begin{algorithm}[!htbp]
 \small
@@ -416,7 +416,7 @@ The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (
 \end{algorithmic}
 \end{algorithm}
 
-Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class (Brandao et al., 2018). The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
+Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
 Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 machines, T = 4 time options), showing the initial X-gate preparation, alternating problem unitary (RZ/RZZ) and XY ring mixer layers, and final measurement. Each machine's qubits form an independent block within the mixer, preserving one-hot feasibility.
 
 \begin{figure}[!htbp]
@@ -439,7 +439,7 @@ After optimization, the state is sampled and the lowest-energy feasible bitstrin
 
 \section{IBM Quantum Hardware Execution}
 For problem sizes beyond classical simulation limits, the QAOA circuit is executed on real quantum hardware via IBM Quantum Platform. The implementation targets IBM Heron r2 processors $(ibm_fez, 156 qubits)$.
-\textbf{Parameter transfer}. Variational parameters are optimized on a classical simulator using a reduced problem (4 machines), then transferred to the full-size circuit. This avoids expensive on-device optimization loops while providing good initial angles (Brandao et al., 2018). \textbf{Transpilation}. The abstract circuit is transpiled to the hardware's native gate set (CZ, SX, RZ) and qubit connectivity using Qiskit's transpiler at optimization level 3. This step introduces routing overhead: additional SWAP gates to satisfy the hardware's coupling map. \textbf{Execution}. The transpiled circuit is executed using SamplerV2 via Qiskit Runtime. Measurement results (4096 shots) are decoded to bitstrings, checked for feasibility, and the lowest-cost feasible solution is selected.
+\textbf{Parameter transfer}. Variational parameters are optimized on a classical simulator using a reduced problem (4 machines), then transferred to the full-size circuit. This avoids expensive on-device optimization loops while providing good initial angles \cite{Brandao2018}. \textbf{Transpilation}. The abstract circuit is transpiled to the hardware's native gate set (CZ, SX, RZ) and qubit connectivity using Qiskit's transpiler at optimization level 3. This step introduces routing overhead: additional SWAP gates to satisfy the hardware's coupling map. \textbf{Execution}. The transpiled circuit is executed using SamplerV2 via Qiskit Runtime. Measurement results (4096 shots) are decoded to bitstrings, checked for feasibility, and the lowest-cost feasible solution is selected.
 Noise effects. Hardware noise causes decoherence, reducing solution quality. The estimated circuit fidelity scales as:
 \begin{equation}
 F_{\text{est}} = (1 - \epsilon_{\text{CZ}})^{n_{\text{CZ}}}
@@ -991,9 +991,9 @@ Figure~\ref{fig:extended_gantt_n7} translates each solver's bitstring into the o
 
 Two literature streams informed our constraint-native quantum approach.
 
-\textbf{IWS-QAOA} (Niroula et al.\ 2026, arXiv:2604.02083) embeds a warm-started XY-mixer Hamiltonian in a classical loop that iteratively refines bias from prior samples and applies greedy steepest-descent repair. Adapted to our streaming-derived $N=3$ instance (greedy warm-start biases the XY-mixer initial state, four iterations at $p=2$ refine $(\gamma,\beta)$ via COBYLA), the IWS-QAOA simulator recovers the MILP optimum (cost $300.00$, $31$~s); since greedy is already optimal at this scale, QAOA layers serve as a verifier — same role as the hardware match in Section~\ref{sec:complex_streaming}.
+\textbf{IWS-QAOA} \cite{Niroula2026} embeds a warm-started XY-mixer Hamiltonian in a classical loop that iteratively refines bias from prior samples and applies greedy steepest-descent repair (see also \cite{Magann2025,Singh2025} for related warm-start formulations). Adapted to our streaming-derived $N=3$ instance (greedy warm-start biases the XY-mixer initial state, four iterations at $p=2$ refine $(\gamma,\beta)$ via COBYLA), the IWS-QAOA simulator recovers the MILP optimum (cost $300.00$, $31$~s); since greedy is already optimal at this scale, QAOA layers serve as a verifier — same role as the hardware match in Section~\ref{sec:complex_streaming}.
 
-\textbf{Reverse-annealing SQA with pause} (P\'erez Armas et al., Sci.\ Rep.\ 2024) uses a $4$-point schedule $[(0,1.0),(2.75,0.45),(82.75,0.45),(83.025,1.0)]$ holding the system at $\Gamma=0.45$ for an $80\,\mu$s tunnelling pause. Adapted to our PIMC SQA (16 replicas seeded from greedy with $10\%$ random flips; ramp $\Gamma$ $0.05\to0.45$, hold $120$ sweeps, ramp back to $0.01$), the streaming $N=4$ instance reaches low QUBO energy ($-30{,}706.4$) but no one-hot-feasible schedule: inter-replica coupling at low $\Gamma$ pulls replicas to the same near-feasible minimum. Reported here as a negative result; the template is better suited to D-Wave hardware than simulator.
+\textbf{Reverse-annealing SQA with pause} \cite{PerezArmas2024} uses a $4$-point schedule $[(0,1.0),(2.75,0.45),(82.75,0.45),(83.025,1.0)]$ holding the system at $\Gamma=0.45$ for an $80\,\mu$s tunnelling pause. Adapted to our PIMC SQA (16 replicas seeded from greedy with $10\%$ random flips; ramp $\Gamma$ $0.05\to0.45$, hold $120$ sweeps, ramp back to $0.01$), the streaming $N=4$ instance reaches low QUBO energy ($-30{,}706.4$) but no one-hot-feasible schedule: inter-replica coupling at low $\Gamma$ pulls replicas to the same near-feasible minimum. Reported here as a negative result; the template is better suited to D-Wave hardware than simulator.
 
 Both adaptations confirm the basic QAOA-XY hardware result: productive quantum methods for constrained scheduling \emph{preserve constraint structure by construction} (XY-ring mixer, projector-Hamiltonian initial state) rather than translating constraints to QUBO penalties.
 
