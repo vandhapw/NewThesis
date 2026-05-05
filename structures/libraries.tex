@@ -20,6 +20,8 @@
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{pifont}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 % --- Font Setup ---
 % Main font: Shinmyungjo (신명조) for Korean text.
@@ -107,3 +109,16 @@
 \tolerance=1000
 \emergencystretch=3em    % allow extra stretch for better justification
 \hyphenpenalty=50
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{green!50!black},
+    showstringspaces=false,
+    frame=single,
+    breaklines=true
+}

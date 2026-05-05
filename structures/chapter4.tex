@@ -1,0 +1,519 @@
+\section{Overview and System Architecture}
+The digital twin framework developed in this research requires a continuous, low-latency stream of sensor data to drive real-time predictive analytics across a manufacturing fleet of 50 heterogeneous machines. This section presents the data ingestion pipeline and the spatio-temporal modelling methodology underpinning the system. The architecture couples a physical Internet of Things (IoT) sensor layer—realised through a Plalion device measuring temperature, humidity, ozone, dust, CO₂, and volatile organic compounds (VOCs)—with a Temporal Graph Convolutional Network (T-GCN) that models the spatial dependencies and temporal dynamics across the machine fleet. The T-GCN framework, originally proposed by Zhao et al. (2020) for traffic forecasting, is adapted here to the manufacturing domain, where machines exhibit non-trivial cross-correlation structures arising from shared production workflows, thermal coupling, and power-line transients. The end-to-end pipeline is illustrated in Figure \ref{fig:dt-sensors}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/images/DT sensors.png}
+    \caption{Three-tier system architecture for real-time data ingestion,
+           spatio-temporal modelling, and state classification.}
+    \label{fig:dt-sensors}
+\end{figure}
+
+The architecture is containerized using Docker and deployed on an Ubuntu 22.04 LTS operating system. Service orchestration utilities Docker Compose with a dedicated Kafka network, enabling inter-service communication without exposing internal ports. Each container is single-responsibility: the Plalion Kafka bridge exclusively handles device-to-broker relay, the consumer persists raw data into MongoDB, and the digital twin container encapsulates the entire modeling pipeline—from sensor alignment through fleet propagation and classification. This design supports modular scaling, fault isolation, and atomic deployment of model updates without disrupting the ingestion layer.
+
+\section{Real-Time Sensor Data Ingestion}
+Physical active sensor is performed by a environmental sensor, deployed within the manufacturing environment. The device exposes a REST API endpoint returning a JSON payload containing seven environmental parameters at a 10-second polling interval. The Kafka bridge, implemented as a Python producer container, executes the following loop:
+
+\begin{algorithm}[htbp]
+\caption{Active Sensor to Kafka Ingestion Loop}
+\label{alg:plalion_kafka}
+\begin{algorithmic}[1]
+
+\Require API\_URL, SERIAL\_NUMBER, KAFKA\_BOOTSTRAP, KAFKA\_TOPIC
+\Ensure Continuous Kafka message stream
+
+\State producer $\gets$ KafkaProducer(
+\Statex \hspace{1.5em} bootstrap\_servers = KAFKA\_BOOTSTRAP,
+\Statex \hspace{1.5em} acks = all,
+\Statex \hspace{1.5em} retries = 3,
+\Statex \hspace{1.5em} value\_serializer = JSON
+\Statex )
+
+\State message\_count $\gets$ 0
+
+\While{true}
+    \State payload $\gets$ \{ ``serial\_num'': SERIAL\_NUMBER \}
+    \State response $\gets$ HTTP\_POST(API\_URL, payload, timeout = 10s)
+    
+    \If{response.status = 200}
+        \State row $\gets$ response.json()[``rows''][0]
+        
+        \State kafka\_msg $\gets$ \{
+        \Statex \hspace{2em} serial\_number, temp, hum, ozone,
+        \Statex \hspace{2em} dust, co2, voc, timestamp
+        \Statex \hspace{1em} \}
+        
+        \State future $\gets$ producer.send(
+        \Statex \hspace{2em} KAFKA\_TOPIC,
+        \Statex \hspace{2em} key = SERIAL\_NUMBER,
+        \Statex \hspace{2em} value = kafka\_msg
+        \Statex \hspace{1em} )
+        
+        \State metadata $\gets$ future.get(timeout = 10s)
+        \State message\_count $\gets$ message\_count + 1
+    \EndIf
+    
+    \State sleep(10s)
+\EndWhile
+
+\end{algorithmic}
+\end{algorithm}
+
+The Kafka topic is configured with three partitions and replication factor 1, appropriate for a single-node deployment. The producer enforces `acks='all'`, requiring acknowledgment from all in-sync replicas before considering a write committed—this trades marginal throughput for guaranteed durability, which is critical for audit trails in manufacturing compliance contexts.
+
+\begin{table}[htbp]
+\centering
+\caption{Kafka Message Schema - Raw Sensor Data}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{3cm}
+>{\centering\arraybackslash}m{2cm}
+>{\raggedright\arraybackslash}X
+>{\centering\arraybackslash}m{1.5cm}
+>{\raggedright\arraybackslash}m{3cm}
+}
+
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Source} & \textbf{Unit} & \textbf{Example Value} \\
+\midrule
+
+\textbf{Temperature}           & float    & Temperature sensor       & °C    & 29.0 \\
+\textbf{Humidity}            & float    & Humidity sensor          & \%RH  & 53.0 \\
+last\_time     & datetime & Device measurement time  & ISO   & "2026-05-05T..." \\
+fetched\_at    & datetime & Bridge fetch timestamp   & ISO   & "2026-05-05T..." \\
+
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A dedicated consumer container subscribes to and persists each message into the MongoDB collection within the database. This collection serves as the canonical data source for the digital twin engine. MongoDB was selected over a relational store because (a) the JSON-nature of sensor payloads maps directly to BSON documents, eliminating impedance mismatch; (b) the schema is semi-structured and evolves with device firmware updates; and (c) MongoDB's TTL indexes and capped collections provide built-in mechanisms for data lifecycle management in streaming contexts.
+
+\section{Spatio-Temporal Modelling with Temporal Graph Convolutional Networks}
+The T-GCN model bridges two complementary neural paradigms: Graph Convolutional Networks (GCNs) for modelling spatial dependencies and Gated Recurrent Units (GRUs) for capturing temporal dynamics. In a manufacturing context, the spatial dimension arises from the physical and operational coupling between machines—adjacent machines on a production line exhibit correlated thermal signatures, vibration propagation through shared flooring, and synchronized power draws. The temporal dimension captures the evolution of these feature trajectories over time, including trend emergence, seasonal patterns aligned with shift schedules, and transient responses to anomalous events.
+
+Formally, the fleet is represented as an undirected weighted graph
+\begin{equation}
+\mathcal{G} = (\mathcal{V}, \mathcal{E}, \mathbf{A})
+\end{equation}
+where:
+\begin{itemize}
+    \item $\mathcal{V} = \{v_1, v_2, \ldots, v_N\}$ denotes the set of $N = 50$ machine nodes;
+    \item $\mathcal{E} \subseteq \mathcal{V} \times \mathcal{V}$ is the edge set, where edge weights represent the cross-correlation strength between machine pairs;
+    \item $\mathbf{A} \in \mathbb{R}^{N \times N}$ is the adjacency matrix.
+\end{itemize}
+
+The normalized adjacency matrix is computed using symmetric normalization:
+\begin{equation}
+\mathbf{A}_{\text{norm}} = \mathbf{D}^{-\frac{1}{2}} \tilde{\mathbf{A}} \mathbf{D}^{-\frac{1}{2}}
+\end{equation}
+where
+\begin{equation}
+\tilde{\mathbf{A}} = \mathbf{A} + \mathbf{I}_N
+\end{equation}
+incorporates self-loops, and the degree matrix $\mathbf{D}$ is defined as
+\begin{equation}
+\mathbf{D}_{ii} = \sum_{j} \tilde{\mathbf{A}}_{ij}.
+\end{equation}
+
+The feature matrix at time $t$ is defined as
+\begin{equation}
+\mathbf{X}^{(t)} \in \mathbb{R}^{N \times d},
+\end{equation}
+where $d = 7$ features consist of five raw sensor measurements and two engineered interaction terms:
+\begin{equation}
+\mathbf{X}^{(t)} =
+\begin{bmatrix}
+\text{temp},\;
+\text{vib},\;
+\text{hum},\;
+\text{press},\;
+\text{energy},\;
+\text{temp} \times \text{vib},\;
+\frac{\text{energy}}{\text{press} + \epsilon}
+\end{bmatrix}.
+\end{equation}
+
+The forecasting objective is to learn a function $f$ that maps a historical window of $T = 10$ timesteps to the next-step prediction:
+\begin{equation}
+\hat{\mathbf{Y}}^{(t+1)} =
+f\left(
+\mathbf{X}^{(t-T+1)}, \ldots, \mathbf{X}^{(t)}; \mathcal{G}
+\right).
+\end{equation}
+
+\subsection{Graph Construction via Cross-Correlation Analysis}
+The adjacency matrix is not imposed a priori but is learned from historical operational data through cross-correlation analysis (CCA). This data-driven approach ensures the graph topology reflects genuine physical dependencies rather than assumed proximity. The CCA procedure computes the Pearson correlation between each machine pair across time lags $\tau \in [-L, L]$ (with $L = 10$):
+
+\begin{equation}
+r_{ij}(\tau) = \mathrm{corr}\bigl(X_i(t),\, X_j(t + \tau)\bigr)
+\end{equation}
+
+The optimal lag $\tau_{ij}^* = \arg\max_{\tau}\, \lvert r_{ij}(\tau) \rvert$ identifies the temporal offset at which the two machines' temperature signals exhibit maximal correlation. An edge is established if $\lvert r_{ij}(\tau_{ij}^*) \rvert \geq \theta_{\text{CC}} = 0.35$, with the edge weight defined as the absolute correlation coefficient. The directionality of the temporal graph is determined by the sign of the optimal lag: if $\tau_{ij}^* > 0$, machine $i$ leads machine $j$, and a directed edge $i \rightarrow j$ is created; conversely, for $\tau_{ij}^* < 0$, the direction is reversed.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Build Temporal Graph via Cross-Correlation Analysis}
+\label{alg:temporal_graph}
+\begin{algorithmic}[1]
+
+\Require df (historical sensor dataframe), feature = temperature, max\_lag = 10, threshold = 0.35
+\Ensure Directed graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ with weighted and signed edges
+
+\State pivot $\gets$ df.pivot(index = timestamp, columns = machine\_id, values = feature)
+\State machines $\gets$ pivot.columns
+\State $n \gets |$machines$|$
+\State strength\_matrix $\gets \mathbf{0}_{n \times n}$
+\State lag\_matrix $\gets \mathbf{0}_{n \times n}$
+
+\For{each pair $(i, j) \in$ machines $\times$ machines}
+    \If{$i = j$}
+        \State strength\_matrix[$i,j$] $\gets 1.0$
+        \State lag\_matrix[$i,j$] $\gets 0$
+        \State \textbf{continue}
+    \EndIf
+
+    \State correlations $\gets [\,]$
+    \For{$\tau \in [-\text{max\_lag},\, \text{max\_lag}]$}
+        \State correlations[$\tau$] $\gets \mathrm{corr}(\text{pivot}[i],\, \text{pivot}[j].\text{shift}(\tau))$
+    \EndFor
+
+    \State best\_$\tau$ $\gets \arg\max_{\tau}\, |\text{correlations}[\tau]|$
+    \State lag\_matrix[$i,j$] $\gets$ best\_$\tau$
+    \State strength\_matrix[$i,j$] $\gets$ correlations[best\_$\tau$]
+\EndFor
+
+\State $\mathcal{G} \gets$ empty directed graph with nodes = machines
+
+\For{each pair $(i, j)$ with $i \neq j$}
+    \If{$|\text{strength\_matrix}[i,j]| \geq \text{threshold}$}
+        \If{$\text{lag\_matrix}[i,j] > 0$}
+            \State $\mathcal{G}.\text{add\_edge}(i \rightarrow j,$
+            \Statex \hspace{2em} weight $= |\text{strength\_matrix}[i,j]|,$
+            \Statex \hspace{2em} lag $= \text{lag\_matrix}[i,j])$
+        \ElsIf{$\text{lag\_matrix}[i,j] < 0$}
+            \State $\mathcal{G}.\text{add\_edge}(j \rightarrow i,$
+            \Statex \hspace{2em} weight $= |\text{strength\_matrix}[i,j]|,$
+            \Statex \hspace{2em} lag $= |\text{lag\_matrix}[i,j]|)$
+        \EndIf
+    \EndIf
+\EndFor
+
+\State \Return $\mathcal{G}$, strength\_matrix
+
+\end{algorithmic}
+\end{algorithm}
+
+The resulting adjacency structure for the 50-machine fleet reveals several significant properties, summarized in Table \ref{tab:graph-structural}.
+
+\begin{table}[htbp]
+\centering
+\caption{Graph Structural Properties}
+\label{tab:graph-structural}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{4cm}
+>{\centering\arraybackslash}m{2.5cm}
+>{\raggedright\arraybackslash}X
+}
+
+\toprule
+\textbf{Property} & \textbf{Value} & \textbf{Interpretation} \\
+\midrule
+
+Matrix dimension            & $50 \times 50$ & Full fleet connectivity \\
+Non-zero off-diagonal edges & 1{,}287        & Dense cross-coupling ($\approx 52.5\%$ of possible) \\
+Mean edge weight            & 0.62           & Moderately strong inter-machine correlation \\
+Max out-degree              & 47             & Hub machines with broad influence \\
+Isolated nodes              & 0              & Every machine is connected to the network \\
+Self-loop weight            & 1.0            & Preserved for numerical stability \\
+
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{T-GCN Model Architecture}
+The T-GCN architecture employed in this work comprises three stacked components, as illustrated in Figure \ref{fig:tgcn-flowchart}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/images/tgcn flowchart.png}
+    \caption{T-GCN architecture. At each timestep t, GCN layers aggregate
+           spatial information across all machines using the normalised
+           adjacency matrix A. The resulting sequence is fed to a stacked
+           GRU, whose final hidden state passes through fully-connected
+           layers to produce the next-step prediction.}
+    \label{fig:tgcn-flowchart}
+\end{figure}
+
+\textbf{Component 1 — Graph Convolution Layers:}
+Two stacked Graph Convolutional Network (GCN) layers are employed to transform node features at each timestep. The first layer projects the input from $d_0 = 7$ to a hidden representation of dimension $d_1 = 64$, while the second layer preserves this dimensionality ($d_2 = 64$). The layer-wise propagation rule follows the first-order Chebyshev approximation \cite{kipf2017semi}:
+
+\begin{equation}
+\mathbf{H}^{(l+1)} = \sigma\!\left( \mathbf{A}_{\text{norm}} \mathbf{H}^{(l)} \mathbf{W}^{(l)} \right),
+\end{equation}
+
+where $\mathbf{W}^{(l)} \in \mathbb{R}^{d_l \times d_{l+1}}$ is the trainable weight matrix, and $\sigma(\cdot)$ denotes the ReLU activation function. A dropout rate of 0.2 is applied between GCN layers for regularisation.
+
+\vspace{0.5em}
+
+\textbf{Component 2 — Temporal Modelling (GRU):}
+The sequence of spatial embeddings $\{\mathbf{h}_1, \ldots, \mathbf{h}_T\}$, where $\mathbf{h}_t \in \mathbb{R}^{64}$, is fed into a two-layer Gated Recurrent Unit (GRU) with hidden dimension 128. The GRU dynamics are defined as:
+
+\begin{align}
+\mathbf{z}_t &= \sigma\!\left( \mathbf{W}_z \mathbf{h}_t + \mathbf{U}_z \mathbf{c}_{t-1} + \mathbf{b}_z \right), \\
+\mathbf{r}_t &= \sigma\!\left( \mathbf{W}_r \mathbf{h}_t + \mathbf{U}_r \mathbf{c}_{t-1} + \mathbf{b}_r \right), \\
+\tilde{\mathbf{c}}_t &= \tanh\!\left( \mathbf{W}_c \mathbf{h}_t + \mathbf{U}_c (\mathbf{r}_t \odot \mathbf{c}_{t-1}) + \mathbf{b}_c \right), \\
+\mathbf{c}_t &= (1 - \mathbf{z}_t) \odot \mathbf{c}_{t-1} + \mathbf{z}_t \odot \tilde{\mathbf{c}}_t,
+\end{align}
+
+where $\mathbf{z}_t$ and $\mathbf{r}_t$ denote the update and reset gates, respectively, and $\odot$ represents element-wise multiplication. The final hidden state $\mathbf{c}_T$ encodes the temporal context of the input sequence.
+
+\vspace{0.5em}
+
+\textbf{Component 3 — Output Head:}
+A two-layer fully connected network maps the final hidden state $\mathbf{c}_T$ to the predicted output:
+
+\begin{equation}
+\hat{\mathbf{y}} = \mathrm{FC}(\mathbf{c}_T),
+\end{equation}
+
+where $\hat{\mathbf{y}} \in \mathbb{R}^{7}$ denotes the predicted feature vector at the next timestep.
+
+
+\begin{table}[htbp]
+\centering
+\caption{Model Hyperparameters and Training Configuration}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{4.2cm}
+>{\centering\arraybackslash}m{2.5cm}
+>{\raggedright\arraybackslash}X
+}
+
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} & \textbf{Rationale} \\
+\midrule
+
+Input dimension ($d$)          & 7            & 5 raw + 2 engineered features \\
+GCN hidden units (layer 1)     & 64           & Balanced capacity vs.\ overfitting \\
+GCN hidden units (layer 2)     & 64           & Maintained for stable feature propagation \\
+GRU hidden units               & 128          & Sufficient for 10-step sequence memory \\
+GRU layers                     & 2            & Enables multi-scale temporal abstraction \\
+Window size ($T$)              & 10           & Covers $\sim$10 minutes of historical context \\
+Dropout (GCN inter-layer)      & 0.2          & Prevents co-adaptation between layers \\
+Dropout (GRU)                  & 0.2          & Consistent regularization across temporal modeling \\
+Dropout (FC)                   & 0.1          & Milder regularization near output layer \\
+Optimizer                      & Adam         & Adaptive learning rate optimization \\
+Learning rate                  & $5 \times 10^{-4}$ & Stable convergence without oscillation \\
+Weight decay                   & $1 \times 10^{-5}$ & $\ell_2$ regularization \\
+LR scheduler                   & Cosine annealing & Smooth decay without abrupt plateaus \\
+Epochs                         & 15           & Early stopping implicit; stable validation performance \\
+Loss function                  & MSE          & Standard for continuous regression tasks \\
+Gradient clipping (max norm)   & 1.0          & Prevents exploding gradients in GRU \\
+\bottomrule
+
+\end{tabularx}
+\end{table}
+
+The model is trained in a fleet-pooled manner: all machines training sequences are concatenated into a single dataset, and the T-GCN learns a shared spatial-temporal transformation that is subsequently applied to each machine by indexing the appropriate node in the adjacency matrix. This pooled training strategy leverages the full corpus of historical data (which is richer than any single machine's record) while the graph structure ensures machine-specific predictions through node-indexed inference.
+
+\subsection{Training and Inference Procedure}
+Training proceeds via standard mini-batch gradient descent with the Adam optimizer. The dataset is partitioned into an 80\%/20\% train/test split chronologically within each machine's sequence to preserve temporal ordering. Algorithm \ref{alg:train_tgcn} formalises the training loop.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Training Procedure for Temporal Graph Convolutional Network (T-GCN)}
+\label{alg:train_tgcn}
+\begin{algorithmic}[1]
+
+\Require $X_{\text{train}}$ (pooled sequences), $y_{\text{train}}$, adjacency matrix $\mathbf{A}$, epochs = 15, learning rate $\eta = 5 \times 10^{-4}$
+\Ensure Trained T-GCN model
+
+\State model $\gets$ TemporalGCN(input\_dim = 7, gcn\_hidden = 64, gru\_hidden = 128, n\_machines = 50)
+\State model $\gets$ model.to(device)
+\State $\mathbf{A} \gets \mathbf{A}$.to(device)
+
+\State optimizer $\gets$ Adam(model.parameters(), $\eta$, weight\_decay = $1 \times 10^{-5}$)
+\State scheduler $\gets$ CosineAnnealingLR(optimizer, $T_{\max} =$ epochs)
+\State criterion $\gets$ MSELoss()
+
+\State loader $\gets$ DataLoader(FleetDataset($X_{\text{train}}, y_{\text{train}}$),
+\Statex \hspace{2em} batch\_size = 32, shuffle = True)
+
+\For{epoch $= 1$ to epochs}
+    \State epoch\_loss $\gets 0$
+
+    \For{each batch $(\mathbf{b}_x, \mathbf{b}_y)$ in loader}
+        \State $\mathbf{b}_x, \mathbf{b}_y \gets \mathbf{b}_x.\text{to(device)}, \mathbf{b}_y.\text{to(device)}$
+        
+        \State $\hat{\mathbf{y}} \gets \text{model}(\mathbf{b}_x, \mathbf{A})$ \Comment{Forward pass}
+        \State loss $\gets$ criterion($\hat{\mathbf{y}}, \mathbf{b}_y$)
+
+        \State optimizer.zero\_grad()
+        \State loss.backward()
+        \State clip\_grad\_norm(model.parameters(), max\_norm = 1.0)
+        \State optimizer.step()
+
+        \State epoch\_loss $\gets$ epoch\_loss + loss.item()
+    \EndFor
+
+    \State scheduler.step()
+\EndFor
+
+\State \Return model
+
+\end{algorithmic}
+\end{algorithm}
+
+During real-time inference, the trained T-GCN performs single-step prediction for the anchor machine (Machine 40) using the most recent $T = 10$ timestep window. The prediction is first computed in the differenced and scaled space, and subsequently reconstructed to absolute values as:
+
+\begin{equation}
+\mathbf{y}_{\text{full}}^{(t+1)} =
+\mathbf{y}_{\text{full}}^{(t)} +
+\mathcal{S}^{-1}\!\left(
+f_{\theta}\bigl(
+\mathbf{X}_{\text{diff,scaled}}^{(t-9:t)};\,
+\mathbf{A},\,
+\text{node} = 40
+\bigr)
+\right),
+\end{equation}
+
+where $\mathcal{S}^{-1}(\cdot)$ denotes the inverse transformation of the standardization operator (e.g., \texttt{StandardScaler}), and $f_{\theta}(\cdot)$ represents the trained T-GCN model.
+
+This differencing formulation enables the model to predict \emph{incremental changes} rather than absolute values, thereby improving numerical stability and inducing stationarity in the time series. Such transformation is widely adopted in time-series forecasting literature \cite{hyndman2018forecasting}.
+
+\section{Sensor Domain Alignment & Fleet Propagation}
+\subsubsection{The Sensor Domain Mismatch Problem}
+A fundamental challenge in connecting environmental IoT sensors to manufacturing digital twins is the domain mismatch between sensor operating ranges and machine operating parameters. The Plalion environmental sensor measures ambient conditions (temperature ≈ 22–33°C, humidity ≈ 20–60\%RH), whereas operational manufacturing machinery exhibits significantly elevated ranges (temperature ≈ 65–85°C, humidity ≈ 35–75\%RH). Directly substituting environmental readings as machine features would produce physically implausible predictions and mislead downstream classification models.
+
+\subsection{SensorAligner: Z-Score Distribution Mapping}
+To resolve this distribution mismatch, we introduce a \texttt{SensorAligner} module that performs z-score-based distribution mapping. The key intuition is that the \emph{relative deviation} of a sensor reading from its source distribution should correspond to an equivalent relative deviation in the target (manufacturing) domain. Formally, the transformation is defined as:
+
+\begin{align}
+z_{\text{env}} &= \frac{x_{\text{env}} - \mu_{\text{env}}}{\sigma_{\text{env}}}, \\
+x_{\text{mfg}} &= z_{\text{env}} \cdot \sigma_{\text{mfg}} + \mu_{\text{mfg}},
+\end{align}
+
+where $\mu_{\text{env}}$ and $\sigma_{\text{env}}$ denote the mean and standard deviation computed online from a rolling buffer of the most recent $100$ sensor readings, while $\mu_{\text{mfg}}$ and $\sigma_{\text{mfg}}$ are fixed parameters estimated from historical manufacturing data.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Sensor Alignment via Z-score Distribution Mapping}
+\label{alg:sensor_aligner}
+\begin{algorithmic}[1]
+
+\Require $temp_{\text{raw}}, hum_{\text{raw}}$, rolling buffers $B_{\text{temp}}, B_{\text{hum}}$ (size $\leq 100$), 
+target parameters $\mu_{\text{mfg}}^{\text{temp}}, \sigma_{\text{mfg}}^{\text{temp}}, \mu_{\text{mfg}}^{\text{hum}}, \sigma_{\text{mfg}}^{\text{hum}}$
+\Ensure $temp_{\text{mapped}}, hum_{\text{mapped}}$
+
+\State $B_{\text{temp}}.\text{append}(temp_{\text{raw}})$
+\State $B_{\text{hum}}.\text{append}(hum_{\text{raw}})$
+
+\If{$|B_{\text{temp}}| > 100$}
+    \State remove oldest entry from $B_{\text{temp}}$
+    \State remove oldest entry from $B_{\text{hum}}$
+\EndIf
+
+\State $\mu_{\text{env}}^{\text{temp}} \gets \mathrm{mean}(B_{\text{temp}})$
+\State $\sigma_{\text{env}}^{\text{temp}} \gets \max\bigl(\mathrm{std}(B_{\text{temp}}),\, 1.0\bigr)$ \Comment{Avoid division by zero}
+
+\State $\mu_{\text{env}}^{\text{hum}} \gets \mathrm{mean}(B_{\text{hum}})$
+\State $\sigma_{\text{env}}^{\text{hum}} \gets \max\bigl(\mathrm{std}(B_{\text{hum}}),\, 1.0\bigr)$
+
+\State $z_{\text{temp}} \gets \dfrac{temp_{\text{raw}} - \mu_{\text{env}}^{\text{temp}}}{\sigma_{\text{env}}^{\text{temp}}}$
+\State $temp_{\text{mapped}} \gets z_{\text{temp}} \cdot \sigma_{\text{mfg}}^{\text{temp}} + \mu_{\text{mfg}}^{\text{temp}}$
+
+\State $z_{\text{hum}} \gets \dfrac{hum_{\text{raw}} - \mu_{\text{env}}^{\text{hum}}}{\sigma_{\text{env}}^{\text{hum}}}$
+\State $hum_{\text{mapped}} \gets z_{\text{hum}} \cdot \sigma_{\text{mfg}}^{\text{hum}} + \mu_{\text{mfg}}^{\text{hum}}$
+
+\State \Return $(temp_{\text{mapped}}, hum_{\text{mapped}})$
+
+\end{algorithmic}
+\end{algorithm}
+
+This approach offers several advantages over simpler alternatives: (a) it is parameter-free beyond the target distribution moments; (b) the rolling buffer adapts to sensor drift and seasonal variations; (c) z-score mapping is monotonic and preserves the ordinal relationship between readings; and (d) it avoids the need for a paired calibration dataset, which would be impractical to collect across all operating conditions.
+
+\subsection{Anchor Strategy: Machne 40 as the Sensing Surrogate}
+The active sensor is conceptually treated as being physically co-located with Machine 40, designated as the **anchor machine**. This design choice reduces the problem from simultaneous multi-machine sensing to a single-point observation with graph-based propagation. The anchor machine receives the aligned sensor readings directly (temperature and humidity from the aligner), while the T-GCN predicts the remaining three features (vibration, pressure, energy consumption) using the full 7-feature model.
+
+\subsection{Fleet Propagation Mechanism}
+Once the anchor prediction is obtained, the change vector $\boldsymbol{\delta} \in \mathbb{R}^{7}$ (i.e., the scaled prediction delta) is propagated to all other machines through graph-mediated influence:
+
+\begin{equation}
+\mathbf{w}_m^{(t+1)}[-1] \;\leftarrow\;
+\mathbf{w}_m^{(t+1)}[-1] \;+\;
+\alpha \,\boldsymbol{\delta} \odot \boldsymbol{\epsilon}_m,
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $\mathbf{w}_m^{(t+1)}[-1]$ denotes the most recent timestep in the sliding window of machine $m$;
+    \item $\alpha = 0.02$ is the base influence coefficient, reflecting that a single sensor perturbation induces only modest downstream effects;
+    \item $\boldsymbol{\epsilon}_m \sim \mathcal{U}(0.98,\, 1.02)$ is a machine-specific perturbation vector, deterministically seeded by the machine ID to ensure both reproducibility and heterogeneity.
+\end{itemize}
+
+The influence is further modulated by an exponential distance decay:
+
+\begin{equation}
+\mathrm{influence}(m) =
+\alpha \,\exp\!\left(-\frac{|m - 40|}{10}\right).
+\end{equation}
+
+Machines that are topologically closer to the anchor (Machine 40) receive stronger coupling, reflecting the physical intuition that adjacent machines share thermal environments and vibration pathways more strongly than distant ones.
+
+Finally, each machine independently performs node-specific forecasting via the T-GCN, with an additional $\pm 1\%$ stochastic perturbation applied to the raw features to prevent degenerate convergence (i.e., identical trajectories across machines), thereby preserving realism in the digital twin simulation.
+
+\begin{algorithm}[htbp]
+\small
+\caption{Propagation of Anchor Prediction to Fleet}
+\label{alg:propagate_fleet}
+\begin{algorithmic}[1]
+
+\Require trained model $f_{\theta}$ (T-GCN), scaler $\mathcal{S}$, adjacency matrix $\mathbf{A}$, machine set $\mathcal{M}$, registry, anchor prediction $\boldsymbol{\delta}$, anchor node $m_a = 40$
+\Ensure results: mapping $\{ m \mapsto \hat{\mathbf{y}}_m \}$
+
+\State results $\gets \{\}$
+\State mid\_to\_idx $\gets$ mapping from machine ID to node index
+
+\For{each machine $m \in \mathcal{M}$ with $m \neq m_a$}
+    \State node\_idx $\gets$ mid\_to\_idx[$m$]
+    
+    \State $\mathbf{X}_m \gets$ copy(registry[$m$][``X''][-1])
+    \State $\mathbf{x}_m^{\text{prev}} \gets$ copy(registry[$m$][``prev''][-1])
+
+    \State set random seed using $m$ \Comment{Deterministic perturbation}
+    \State $\boldsymbol{\epsilon}_m \sim \mathcal{U}(0.98,\, 1.02)^7$
+
+    \State $\boldsymbol{\delta}_m \gets \boldsymbol{\delta} \cdot 0.02 \odot \boldsymbol{\epsilon}_m$
+    \State $\mathbf{X}_m[-1] \gets \mathbf{X}_m[-1] + \boldsymbol{\delta}_m$
+
+    \State $\hat{\mathbf{y}}_m \gets$ PREDICT\_ANCHOR\_MACHINE(
+    \Statex \hspace{2em} $f_{\theta}, \mathcal{S}, \mathbf{A}, \mathbf{X}_m, \mathbf{x}_m^{\text{prev}},$ node\_idx)
+
+    \State \Comment{Apply uniqueness constraint}
+    \For{$i = 1$ to $5$}
+        \State $\eta \sim \mathcal{U}(-0.01,\, 0.01)$
+        \State $\hat{\mathbf{y}}_m[i] \gets \hat{\mathbf{y}}_m[i] + \eta \cdot \hat{\mathbf{y}}_m[i]$
+    \EndFor
+
+    \State results[$m$] $\gets \hat{\mathbf{y}}_m$
+\EndFor
+
+\State \Return results
+
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Real-Time Simulation Loop}
+The complete real-time simulation cycle integrates all components in a 60-second loop, as depicted in the sequence diagram of Figure \ref{fig:sequence-diagram}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/images/sequence diagram sensor (2).png}
+    \caption{Sequence diagram of one 60-second simulation cycle}
+    \label{fig:sequence-diagram}
+\end{figure}
