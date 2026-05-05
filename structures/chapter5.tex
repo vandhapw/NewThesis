@@ -156,9 +156,9 @@ Each sensor reading is a 6-dimensional vector $x_t = [T, H, V, P, E, L]$ for tem
 \paragraph{How constraints are defined.}
 Constraints in QASAMAP are organised in two tiers, derived from operational practice and ISO~13374 condition-monitoring guidelines, and version-controlled in the workspace as a single source of truth.
 
-\textbf{Tier~1 --- physical-state constraints} (this section, Table~\ref{tab:sensor-model-constraint}) live in \texttt{Constraints.txt} and the \texttt{CONSTRAINTS} dictionary of \texttt{config.py}. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate \texttt{T\_ref}, \texttt{V\_ref}, \texttt{H\_ref}, \texttt{P\_ref}, and \texttt{E\_ref}, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The \texttt{ConstraintsEngine.evaluate()} method consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the dictionary.
+\textbf{Tier~1 --- physical-state constraints} (this section, Table~\ref{tab:sensor-model-constraint}) are stored as a single source-of-truth configuration consumed by the constraints engine. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate the per-channel reference values $T_{\text{ref}}$, $V_{\text{ref}}$, $H_{\text{ref}}$, $P_{\text{ref}}$, $E_{\text{ref}}$, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The constraints engine consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the configuration values.
 
-\textbf{Tier~2 --- scheduling constraints} (Chapter~6, Constraints (C1)--(C4)) live in \texttt{SCHEDULING\_CONFIG} and \texttt{CONSTRAINTS} of the same \texttt{config.py}. \emph{(C1) one-hot} reflects the operational rule that a maintenance task is performed once per planning horizon per machine. \emph{(C2) slot-window capacity} ($C=3$ machines per active maintenance window) is set by the operator-defined crew availability and spare-parts policy. \emph{(C3) risk horizon} ($24$~h) is the operator-mandated deadline for any high-priority machine, derived from the historical mean-time-to-failure of cumulative-damage trajectories that exceed the danger threshold. \emph{(C4) must-schedule} is the closure rule that every machine flagged \texttt{needs\_maintenance} by Tier~1 enters the (C1) decision variables. The four scheduling constraints are not ML-tuned; they are operator-set integers that the scheduling layer of Chapter~6 must satisfy as hard constraints (MILP linear inequalities) or as penalty terms (QUBO), with the same numeric values across all solver paradigms to keep the comparison fair.
+\textbf{Tier~2 --- scheduling constraints} (Chapter~6, Constraints (C1)--(C4)) are stored as the scheduling-layer configuration consumed by every solver in the comparative benchmark. \emph{(C1) one-hot} reflects the operational rule that a maintenance task is performed once per planning horizon per machine. \emph{(C2) slot-window capacity} ($C=3$ machines per active maintenance window) is set by the operator-defined crew availability and spare-parts policy. \emph{(C3) risk horizon} ($24$~h) is the operator-mandated deadline for any high-priority machine, derived from the historical mean-time-to-failure of cumulative-damage trajectories that exceed the danger threshold. \emph{(C4) must-schedule} is the closure rule that every machine flagged \texttt{needs\_maintenance} by Tier~1 enters the (C1) decision variables. The four scheduling constraints are not ML-tuned; they are operator-set integers that the scheduling layer of Chapter~6 must satisfy as hard constraints (MILP linear inequalities) or as penalty terms (QUBO), with the same numeric values across all solver paradigms to keep the comparison fair.
 
 The two-tier organisation gives a clean responsibility split: Tier~1 produces \texttt{(priority\_score, priority\_level, risk\_state, needs\_maintenance, n\_violations, violation\_types)} per machine, and the scheduling layer consumes these along with Tier~2 globals to form the optimisation instance. No solver in Chapter~6 reads sensor readings directly.
 \begin{table}[!htbp]
@@ -271,33 +271,34 @@ Average damage index                 & 0.438 & moderate cumulative damage accumu
 \FloatBarrier
 
 \subsection{Cognitive-Layer to Scheduling-Layer Handover}
-The $45$ forwarded machines yield a QUBO with $T=19$ slots ($\sim 3$~h each) and $n_{\text{bits}} = 855$ binary variables — substantially larger than the $n=390$ synthetic ceiling at $N=30$ in Chapter~6. Table~\ref{tab:stream50_solvers} reports MILP/QIEA/SQA outcomes on this instance.
+The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot duration $\sim 3$~h) and $N_{\text{maint}} \cdot T = 855$ binary decision variables — substantially larger than the synthetic ceiling at $N=30$ used for the controlled benchmarks of Chapter~6. The solver-level comparison on this instance, including measured cost, feasibility, and wall-time across MILP/CBC, QIEA, and the quantum-inspired baselines, is the responsibility of Chapter~6 (\S6.10) and is not reported here. For the multi-agent integration test, the relevant outcome is binary: the downstream MILP/CBC solver returned a one-hot- and capacity-feasible schedule for all $45$ forwarded machines in $36.9$~ms, well inside the $60$-s Kafka cycle. The end-to-end run therefore exercises the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) in series for $50$ machines without manual intervention, confirming that the multi-agent system closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
 
-\begin{table}[!htbp]
-\centering
-\caption{Solver outcomes on the 50-machine streaming instance ($N_{\text{maint}}=45$, $T=19$, $n_{\text{bits}}=855$). Numerics from \texttt{streaming\_50machines\_results.json}.}
-\label{tab:stream50_solvers}
-\small
-\renewcommand{\arraystretch}{1.05}
-\setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\textwidth}{
->{\raggedright\arraybackslash}m{2.0cm}
->{\centering\arraybackslash}m{2.0cm}
->{\centering\arraybackslash}m{1.8cm}
->{\centering\arraybackslash}m{2.5cm}
->{\raggedright\arraybackslash}X
+\subsection{Per-Machine Agent Output}
+\label{sec:agent_output_example}
+The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Pattern Learning $\to$ Diagnosis $\to$ Planning) for each machine in the streaming run is a structured per-machine state record consumed by the Phase~3 Action agent and forwarded to the scheduling layer. Listing~\ref{lst:agent_state_example} reproduces the record for \texttt{machine\_002} from the 50-machine streaming run; the complete fleet output is the list of $45$ such records that defines the scheduling-layer input.
+
+\begin{lstlisting}[language=json,caption={Per-machine agent output emitted by the cognitive layer for \texttt{machine\_002} during the 50-machine streaming run. The same dictionary structure is produced for every machine flagged by Tier~1 constraints.},label={lst:agent_state_example},basicstyle=\ttfamily\footnotesize]
+{
+  "machine_id":        "machine_002",
+  "priority_score":    252.40,
+  "priority_level":    "CRITICAL",
+  "health_index":      0.2847,
+  "damage_index":      0.8689,
+  "anomaly_score":     1.0000,
+  "is_operating":      false,
+  "risk_state":        true,
+  "needs_maintenance": true,
+  "n_violations":      11,
+  "violation_types":   [
+      "energy_limit",
+      "vibration_trend",   "vibration_max", "vibration_cavitation",
+      "pressure_max",
+      "temperature_envelope", "temperature_critical", "temperature_trend",
+      "humidity_temperature_coupling",
+      "energy_trend",      "energy_cavitation"
+  ],
+  "n_readings":        10
 }
-\toprule
-\textbf{Solver} & \textbf{Pure cost} & \textbf{Feasible} & \textbf{Wall time} & \textbf{Notes} \\
-\midrule
-MILP / CBC & $21{,}455.6$ & Yes (45/45) & 36.9~ms     & exact optimum, all forwarded machines scheduled \\
-QIEA       & $7{,}958.7$  & No          & 12{,}447.7~ms & lower nominal cost masks one-hot violations \\
-SQA        & ---          & ---         & timeout      & no result returned within solver budget \\
-\bottomrule
-\end{tabularx}
-\end{table}
-\FloatBarrier
+\end{lstlisting}
 
-At $N=50$, MILP returns the exact optimum in $\sim 37$~ms, comfortably within the 60-s Kafka cycle. QIEA terminates in $\sim 12$~s with a misleadingly lower cost ($7{,}958.7$ vs $21{,}455.6$): the lower number is itself the infeasibility signature — the search drifts into a $\{0,1\}^{855}$ region where the one-hot penalty no longer dominates, so QUBO energy drops without committing every machine. SQA times out. We route scheduling to MILP/CBC by default for $N\geq 30$, retaining QIEA/SQA only for the small-fleet regime of Chapter~6.
-
-This single end-to-end run also serves as an integration test of the multi-agent system: the per-window dispatch (Algorithm~\ref{alg:stream_processing}), the four-phase orchestration (Algorithm~\ref{alg:multi_agent}), the priority computation, and the QUBO construction (Algorithm~\ref{alg:build_qubo}, Chapter~6) are all exercised in series for 50 machines without manual intervention, establishing that the system as a whole closes the loop from raw Kafka events to a constraint-satisfying maintenance schedule under realistic fleet conditions.
+The fields trace back to specific agent outputs: \texttt{priority\_score} and \texttt{priority\_level} are emitted by the Planning agent from the linear weighting formula of \S5.3.2; \texttt{health\_index}, \texttt{damage\_index}, \texttt{anomaly\_score}, \texttt{is\_operating}, and \texttt{risk\_state} are derived by the Monitoring agent through the constraints engine of \S5.3.2; \texttt{n\_violations} and \texttt{violation\_types} are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; \texttt{needs\_maintenance} is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.
