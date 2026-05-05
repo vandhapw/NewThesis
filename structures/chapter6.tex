@@ -1060,8 +1060,12 @@ are:
     successfully post-selects a feasible schedule. The same
     construction applied to $N=7$--$10$ (estimated $\sim$2{,}500--%
     $5{,}000$ CZ gates) is reported alongside Table~\ref{tab:ibm_hardware}
-    when measured; an explicit $N=7$ \texttt{ibm\_fez} submission is
-    in progress at the time of writing.
+    when measured; the $N=7$ \texttt{ibm\_fez} submission attempted in
+    this study did not return within the available IBM Quantum queue
+    budget, and the noise-decay projection
+    $F_{\text{est}}(N=7) \lesssim 1\%$ at $p=2$ in
+    Table~\ref{tab:ibm_hardware} is the operative estimate pending a
+    follow-up run with extended queue allocation.
 \end{enumerate}
 
 \paragraph{Visualisation.}
@@ -1109,9 +1113,11 @@ late starts differently across the $54$-hour and $72$-hour slots.
 None of these classical schedules satisfies (C3); the operational
 question is which solver's late-start pattern minimises the
 expected damage accumulation over the $4$ unscheduled-by-deadline
-machines. Decoding the QAOA-XY hardware bitstring as a fourth panel
-of Figure~\ref{fig:extended_gantt_n7} is reserved for the
-in-progress $N=7$ \texttt{ibm\_fez} submission.
+machines. Decoding the QAOA-XY hardware bitstring as a fourth
+panel of Figure~\ref{fig:extended_gantt_n7} is reserved for a
+follow-up study: the $N=7$ \texttt{ibm\_fez} submission attempted
+during this study did not return within the available queue
+budget, so this comparison is left to subsequent work.
 
 \begin{figure}[!htbp]
     \centering
