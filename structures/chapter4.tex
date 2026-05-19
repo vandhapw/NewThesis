@@ -264,7 +264,7 @@ The cross-correlation graph for T-GCN comprises 50 nodes (machines) and 538 dire
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/images/cross-correlation-strength-matrix.png}
-    \caption{Cross-correlation strength matrix for the temperature time series across the first 20 machines. Each cell $(i,j)$ encodes the absolute Pearson correlation at the lag of maximum absolute correlation. Darker cells indicate stronger directional coupling. Machine pairs with $|r| > 0.35$ are retained as directed edges in the T-GCN adjacency graph.}
+    \caption{Cross-correlation strength matrix for temperature across 20 machines.}
     \label{fig:cc_matrix}
 \end{figure}
 
@@ -311,11 +311,7 @@ The T-GCN architecture employed in this work comprises three stacked components,
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/tgcn flowchart.png}
-    \caption{T-GCN architecture. At each timestep t, GCN layers aggregate
-           spatial information across all machines using the normalised
-           adjacency matrix A. The resulting sequence is fed to a stacked
-           GRU, whose final hidden state passes through fully-connected
-           layers to produce the next-step prediction.}
+    \caption{T-GCN architecture with GCN spatial aggregation and GRU temporal layers.}
     \label{fig:tgcn-flowchart}
 \end{figure}
 \textbf{Component 1 — Graph Convolution Layers:}
@@ -506,7 +502,7 @@ Figure~\ref{fig:model_performance} presents a four-panel performance summary com
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
-    \caption{Model performance comparison across $R^2$ per feature, log-scale MSE per feature, aggregate metrics, and training-loss convergence (15 epochs). T-GCN (CC-Adj, gold) leads on every panel; OptimizedLSTM (teal) and Hybrid LSTM--GCN (magenta) trail on accuracy and converge more slowly.}
+    \caption{Model performance comparison across metrics and convergence.}
     \label{fig:model_performance}
 \end{figure}
 
@@ -515,7 +511,7 @@ Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the au
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-horizon-per-model-feature.png}
-    \caption{Multi-horizon autoregressive rollout predictions across four sensors (rows) and three models (columns). Solid black: actual; dashed: predicted; shaded band: $\pm 1\sigma$ across starting windows. T-GCN tracks the actual trajectory most closely with the tightest uncertainty bands, especially on humidity and pressure.}
+    \caption{Multi-horizon predictions across sensors and models.}
     \label{fig:multi_horizon}
 \end{figure}
 
@@ -524,7 +520,7 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/horizon-mae-degradation-curve.png}
-    \caption{Horizon MAE degradation across $10$ forecast steps for temperature, vibration, humidity, and pressure. Non-monotonic growth reflects sensor periodicity. T-GCN (CC-Adj, gold) holds the lowest MAE at most steps, with the largest margin at the medium horizons ($5$--$8$) most relevant for maintenance scheduling.}
+    \caption{Horizon MAE degradation over 10 forecast steps.}
     \label{fig:mae_degradation}
 \end{figure}
 
@@ -533,7 +529,7 @@ Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versu
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/prediction-vs-actual.png}
-    \caption{Prediction vs.\ actual on $200$ test samples for temperature, vibration, humidity, and pressure. Each panel overlays actual (solid black) with predictions from OptimizedLSTM, T-GCN (CC-Adj), and Hybrid LSTM--GCN; per-model $R^2$ is annotated in each legend. T-GCN tracks the actual trajectory most closely on all four channels.}
+    \caption{Prediction vs. actual on 200 test samples.}
     \label{fig:pred_vs_actual}
 \end{figure}
 

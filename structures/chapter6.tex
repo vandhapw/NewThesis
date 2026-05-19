@@ -405,7 +405,7 @@ Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 mach
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/fig7_qaoa_circuit.png}
-    \caption{QAOA circuit architecture for a minimal scheduling instance ($N=2$, $T=4$), showing alternating problem unitary and XY ring mixer layers with final measurement.}
+    \caption{QAOA circuit for minimal scheduling instance ($N=2$, $T=4$).}
     \label{fig:qaoa-circuit}
 \end{figure}
 
@@ -510,7 +510,7 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{figures/images/fig5_noise_frontier.png}
-    \caption{IBM Quantum hardware scaling analysis: circuit complexity (depth and CZ-gate count) versus fleet size $N$, and the resulting noise-scaling frontier where estimated fidelity $F_{\text{est}} = (1-\varepsilon_{\text{CZ}})^{n_{\text{CZ}}}$ decays exponentially.}
+    \caption{IBM Quantum hardware scaling: complexity vs. fleet size.}
     \label{fig:noise-frontier}
 \end{figure}
 \FloatBarrier
@@ -557,7 +557,7 @@ Streaming reveals three critical departures from synthetic benchmarks. \textbf{H
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{figures/images/fig9_streaming_vs_synthetic.png}
-    \caption{Streaming real-time data versus synthetic benchmarks: priority distribution, MILP cost, and QIEA cost across fleet sizes $N=3$--$15$.}
+    \caption{Real-time vs. synthetic benchmark costs across fleet sizes.}
     \label{fig:streaming-vs-synthetic}
 \end{figure}
 
@@ -730,19 +730,14 @@ Figure~\ref{fig:extended_cost_vs_N} encodes feasibility as marker shape (circle 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{figures/images/extended_cost_vs_N.png}
-    \caption{Pure scheduling cost vs.\ fleet size $N$ on
-    streaming-derived complex-constraint instances. Solid markers =
-    feasible result, cross markers = infeasible best-effort.
-    All classical solvers cross the feasibility cliff at $N = 7$.}
+    \caption{Scheduling cost vs. fleet size on streaming instances.}
     \label{fig:extended_cost_vs_N}
 \end{figure}
 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{figures/images/extended_runtime_vs_N.png}
-    \caption{Solver runtime (log scale, ms) vs.\ fleet size $N$.
-    The 60-s Kafka cycle deadline is shown for reference; every
-    classical solver remains $\sim$100$\times$ inside the budget.}
+    \caption{Solver runtime vs. fleet size with Kafka deadline reference.}
     \label{fig:extended_runtime_vs_N}
 \end{figure}
 \FloatBarrier
@@ -753,11 +748,7 @@ Figure~\ref{fig:extended_gantt_n7} translates each solver's bitstring into the o
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{figures/images/extended_gantt_N7.png}
-    \caption{Decoded $N=7$ maintenance schedules (MILP,
-    QAOA-XY on \texttt{ibm\_fez}, QIEA, GA). Red dashed line:
-    $24$-h risk horizon; bar colour encodes priority level; bars
-    to the right of the line are (C3) violations. QAOA-XY incurs
-    $V=2$ versus $V=8$ for the best classical heuristic.}
+    \caption{Decoded $N=7$ maintenance schedules across solvers.}
     \label{fig:extended_gantt_n7}
 \end{figure}
 \FloatBarrier

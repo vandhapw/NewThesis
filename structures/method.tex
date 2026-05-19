@@ -14,7 +14,7 @@ QASAMAP is organized into three functional layers, as illustrated in Figure~\ref
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/Research Methodology - Comprehensive Industrial AI & Quantum Optimization Workflow.png}
-    \caption{QASAMAP Research Methodology: The three-layer architecture spanning data generation and predictive modelling (Layer~1), Agentic AI Framework with multi-agent LLM orchestration (Layer~2), and Quantum-Inspired Classical Heuristic Engine with QUBO-formulated local search, QAOA-formulated graph scheduling, and Pauli-Z encoding (Layer~3).}
+    \caption{QASAMAP three-layer research methodology architecture.}
     \label{fig:research_methodology}
 \end{figure}
 \subsection{Smart Manufacturing Setting}
@@ -24,7 +24,7 @@ A central enabling concept in modern smart manufacturing is the \textbf{digital 
 % \begin{figure}[!htbp]
 %     \centering
 %     \includegraphics[width=0.6\textwidth]{figures/images/digital_twin_dataflow.png}
-%     \caption{Data flow architecture of a Digital Twin in manufacturing, depicting the cyclic integration of physical asset data, virtual models, and predictive analytics. The bidirectional data link enables real-time sensor ingestion, model inference, and feedback-driven control that underpins the QASAMAP closed-loop architecture. Image adapted from Kritzinger (2018), via Wikimedia Commons (CC BY-SA 4.0).}
+%     \caption{Digital Twin data flow architecture in manufacturing. Adapted from Kritzinger (2018).}
 %     \label{fig:digital_twin_method}
 % \end{figure}
 
@@ -112,7 +112,7 @@ The empirical consequences of siloed modelling are directly observable in the da
 % \begin{figure}[!htbp]
 %     \centering
 %     \includegraphics[width=\textwidth]{figures/images/agentic_ai_architecture.png}
-%     \caption{Agentic AI Smart Manufacturing Architecture: The six-stage pipeline from Kafka data ingestion through the \texttt{ContextMemoryStore}, \texttt{ReasoningEngine}, \texttt{MultiAgentOrchestrator} (nine LLM agents: Monitoring, Diagnosis, Planning, Reporting, Correlation, Explainability, Self-Reflection, Scheduling, Pattern Learning), Action Layer with human-in-the-loop approval for high-risk actions, and \texttt{LearningLoop} for threshold adaptation and T-GCN retraining.}
+%     \caption{Agentic AI smart manufacturing six-stage pipeline.}
 %     \label{fig:agentic_ai_architecture}
 % \end{figure}
 
@@ -158,7 +158,7 @@ The empirical consequences of siloed modelling are directly observable in the da
 % \begin{figure}[!htbp]
 %     \centering
 %     \includegraphics[width=\textwidth]{figures/images/quantum_agent_architecture.png}
-%     \caption{Integrated Quantum-Agentic architecture: The Heuristic Layer (Pauli-Z encoding, QUBO-formulated local search, QAOA-formulated graph scheduling) runs once per machine batch and feeds a consolidated heuristic context into the per-machine Agentic Decision Loop. The \texttt{should\_quantum\_override} gate escalates machines with heuristic danger signals regardless of classical risk level. The Learning Loop at the bottom implements Q-FN feedback and threshold adaptation.}
+%     \caption{Integrated Quantum-Agentic architecture with heuristic and learning loops.}
 %     \label{fig:quantum_agent_architecture}
 % \end{figure}
 

@@ -73,7 +73,7 @@ The T-GCN spatial backbone is constructed from pairwise lagged cross-correlation
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/images/cross-correlation-strength-matrix.png}
-    \caption{Cross-correlation strength matrix for the temperature time series across the first 20 machines. Each cell $(i,j)$ encodes the absolute Pearson correlation at the lag of maximum absolute correlation. Darker cells indicate stronger directional coupling. Machine pairs with $|r| > 0.35$ are retained as directed edges in the T-GCN adjacency graph.}
+    \caption{Cross-correlation strength matrix for temperature across 20 machines.}
     \label{fig:cc_matrix_exp}
 \end{figure}
 Figure~\ref{fig:cc_matrix_exp} visualises the cross-correlation strength matrix for the first 20 machines. The predominance of light-yellow and orange off-diagonal cells confirms that most machine pairs exhibit weak direct linear coupling ($|r| < 0.35$), consistent with independent production lines operating under shared environmental conditions. Scattered darker cells identify specific machine pairs---notably machines 3--13, 17--19, and 19--20---with moderate negative correlations, suggesting thermal counter-cycling patterns in which one machine's heat signature inversely predicts another's at a characteristic lag. These directional relationships are encoded as weighted edges that enable the T-GCN to propagate anomaly signals from source machines to their dependents.
@@ -111,7 +111,7 @@ Machine~40 appears in both tables (out-degree rank 1 and in-degree rank 2), indi
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-source-graph-simulation.png}
-    \caption{Multi-source graph simulation demonstrating cross-machine propagation via the T-GCN adjacency graph. Source machines (Machine~40, 27, 14, dashed lines) drive dependent machines (Machine~1, 50, 32, solid lines) through the cross-correlation edges. The simulation shows coherent oscillation propagation during normal operation (steps 0--50) followed by joint collapse at step~50, validating the \texttt{propagate\_from\_anchor} mechanism for anomaly-driven machine-wide prediction.}
+    \caption{Multi-source graph simulation via T-GCN adjacency.}
     \label{fig:graph_sim_exp}
 \end{figure}
 \subsubsection{Anchor-Driven Streaming and Cross-Machine Imputation}
@@ -156,7 +156,7 @@ Workflow: 1 sensor aktif di Machine 40 -> AnchorBufferManager -> T-GCN Graph
           50 mesin (termasuk mesin dengan sensor parsial/tidak lengkap)
 \end{verbatim}
 \end{minipage}
-\caption{ASCII workflow diagram of the anchor-driven streaming and cross-machine imputation mechanism. Machine~40, the only fully instrumented node, feeds a continuous sensor stream into the \texttt{AnchorBufferManager}. The T-GCN graph convolution propagates the anchor's spatial embedding through the cross-correlation adjacency edges, producing graph-influenced forecasts for all dependent machines---including those with partial or missing sensors.}
+\caption{Anchor-driven streaming and cross-machine imputation workflow.}
 \label{fig:anchor_workflow}
 \end{figure}
 This anchor-driven design has two immediate operational benefits. First, it reduces the minimum sensor instrumentation required for fleet-wide predictive maintenance: only Machine~40 needs a complete, high-reliability sensor suite, while dependents can operate with cheaper, partial instrumentation. Second, it enables early-warning propagation: because the graph encodes lagged thermal and mechanical influence relationships, an anomaly detected at Machine~40 generates predictive alerts for dependent machines before their own local sensors cross warning thresholds. The \texttt{propagate\_from\_anchor} function formalises this behaviour by injecting synthetic perturbations at the anchor and measuring their graph-mediated impact, confirming that the cross-correlation adjacency structure captures real, operationally relevant cross-machine dynamics.
@@ -220,7 +220,7 @@ Figure~\ref{fig:model_performance} presents a four-panel performance summary com
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
-    \caption{Four-panel model performance comparison: (top-left) R\textsuperscript{2} score per sensor feature for all three architectures; (top-right) MSE per feature on log scale; (bottom-left) aggregate average R\textsuperscript{2}, inverse MSE, and inverse MAE; (bottom-right) training loss convergence over 15 epochs. T-GCN (CC-Adj, gold) consistently outperforms both the OptimizedLSTM (teal) and Hybrid LSTM-GCN (magenta) baselines and achieves the fastest convergence to the lowest final training loss.}
+    \caption{Four-panel model performance comparison across metrics.}
     \label{fig:model_performance}
 \end{figure}
 \paragraph{Multi-Horizon Autoregressive Prediction.}
@@ -228,7 +228,7 @@ Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the au
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/multi-horizon-per-model-feature.png}
-    \caption{Multi-horizon autoregressive rollout predictions for four sensor channels (rows: temperature, vibration, humidity, pressure) across three models (columns: OptimizedLSTM, T-GCN CC-Adj, Hybrid LSTM-GCN). Solid black line: actual values; dashed coloured line: predicted values; shaded band: $\pm 1\sigma$ uncertainty across starting windows. T-GCN consistently maintains tighter uncertainty bands and closer tracking of actual trajectories, particularly for humidity and pressure, demonstrating superior multi-step robustness compared to baseline architectures.}
+    \caption{Multi-horizon predictions across sensors and models.}
     \label{fig:multi_horizon}
 \end{figure}
 \paragraph{Horizon MAE Degradation Curve.}
@@ -236,7 +236,7 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/horizon-mae-degradation-curve.png}
-    \caption{Horizon MAE Degradation Curves showing forecast error accumulation over 10 prediction steps for temperature, vibration, humidity, and pressure channels. All three models exhibit non-monotonic MAE growth reflecting sensor periodicity. T-GCN (CC-Adj, gold) consistently achieves the lowest MAE at most horizon steps, with the advantage most pronounced at medium horizons (steps 5--8) that are most critical for maintenance decision scheduling.}
+    \caption{Horizon MAE degradation curves over 10 steps.}
     \label{fig:mae_degradation}
 \end{figure}
 \paragraph{Multi-Source Cross-Correlation Graph Simulation.}
@@ -247,7 +247,7 @@ Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versu
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/prediction-vs-actual.png}
-    \caption{Prediction vs.\ Actual sample comparison for 200 test samples across temperature, vibration, humidity, and pressure channels. Each panel overlays actual values (solid black) with predictions from OptimizedLSTM, T-GCN (CC-Adj), and Hybrid LSTM-GCN. Per-model R\textsuperscript{2} values are annotated in each legend. T-GCN consistently achieves the closest alignment with actual trajectories and the highest R\textsuperscript{2} across all four sensor channels.}
+    \caption{Prediction vs. actual on 200 test samples.}
     \label{fig:pred_vs_actual}
 \end{figure}
 \subsection{Mathematical Formulations of Forecasting Models}
