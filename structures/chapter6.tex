@@ -467,7 +467,7 @@ The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm
 
 \begin{table}[!htbp]
 \centering
-\caption{IBM Quantum hardware scaling study. Feasibility rate is the fraction of measurement shots yielding constraint-satisfying bitstrings. Circuit depth and gate counts are post-transpilation for the \texttt{ibm\_fez} topology. Beyond approximately $N=15$ machines the transpiled depth exceeds hardware coherence times and the output degrades to uniform noise.}
+\caption{IBM Quantum hardware scaling: feasibility rate, circuit depth, and gate counts versus $N$.}
 \label{tab:ibm_hw}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -522,7 +522,7 @@ End-to-end streaming sensor data through the full multi-agent pipeline produces 
 
 \begin{table}[!htbp]
 \centering
-\caption{Streaming real-time data results. Priority scores, health and damage indices are derived from accumulated sensor constraint violations. QIEA becomes infeasible at $N\geq 8$ with streaming data, compared with $N>30$ on synthetic data.}
+\caption{Streaming real-time scheduling: priorities, health and damage indices from sensor constraints.}
 \label{tab:str_sch}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -574,7 +574,7 @@ Table~\ref{tab:cs_n3} reports the result for the $N=3$ instance ($T=4$, $n_{\tex
 
 \begin{table}[!htbp]
 \centering
-\caption{Complex-constraint streaming experiment ($N=3$, all four constraints enforced; problem instance derived directly from \texttt{RealtimeStreamSimulator} output). The QAOA hardware row is a measured submission to \texttt{ibm\_fez}; cost rows are pure scheduling cost (penalty terms excluded for fair comparison).}
+\caption{Complex-constraint streaming experiment at $N=3$ with measured QAOA hardware submission.}
 \label{tab:cs_n3}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -613,7 +613,7 @@ where $V(\mathbf{a})$ is the total count of (C2)$+$(C3) violations and $\mathcal
 
 \begin{table}[!htbp]
 \centering
-\caption{Head-to-head comparison on streaming-derived complex-constraint instances at $N=4$ (MILP-feasible) and $N=5$ (MILP-infeasible). Cost is pure scheduling cost; ``Viol.'' is the count of (C2)+(C3) violations.}
+\caption{Head-to-head on streaming complex-constraint instances at $N=4$ and $N=5$.}
 \label{tab:cs_n45}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -659,10 +659,7 @@ Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\re
 
 \begin{table}[!htbp]
 \centering
-\caption{Extended streaming benchmark at $N = 7, 9, 10$ machines on
-the full complex-constraint set (C1)--(C4); ``Viol.'' is the count of
-(C2)+(C3) violations under the lexicographic feasibility-aware score.
-All numerics from \texttt{extended\_benchmark\_N\{7,9,10\}.json}.}
+\caption{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
 \label{tab:ext_str}
 \small
 \renewcommand{\arraystretch}{1.05}
