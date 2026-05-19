@@ -26,11 +26,11 @@ agent pipeline concurrently, ensuring continuous data ingestion regardless of LL
 \textbf{Principle 5: Heterogeneous Model Routing (LLM-OR)}. Different agents are routed to different LLM models (GLM-5.1, Kimi-K2.6, DeepSeek-v4-Pro) based on task characteristics. This implements an LLM Operations Research (LLM-OR) router that matches cognitive requirements to model capabilities.
 
 \section{Agent Pipeline: Phased Execution Model}
-The multi-agent orchestrator coordinates nine specialized agents through a four-phase execution pipeline. Each phase has explicit data dependencies that determine execution order, while agents within the same phase execute concurrently via thread pools. This section details the agent responsibilities, inter-agent communication protocol, and the phased execution semantics. The nine agents are organized into four functional categories based on their role in the cognitive pipeline as shown in the Table \ref{tab:agent-taxonomy}.
+The multi-agent orchestrator coordinates nine specialized agents through a four-phase execution pipeline. Each phase has explicit data dependencies that determine execution order, while agents within the same phase execute concurrently via thread pools. This section details the agent responsibilities, inter-agent communication protocol, and the phased execution semantics. The nine agents are organized into four functional categories based on their role in the cognitive pipeline as shown in the Table \ref{tab:agent_tx}.
 \begin{table}[!htbp]
 \centering
 \caption{Agent taxonomy showing phase assignment, responsibilities, and LLM model routing.}
-\label{tab:agent-taxonomy}
+\label{tab:agent_tx}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -156,7 +156,7 @@ Each sensor reading is a 6-dimensional vector $x_t = [T, H, V, P, E, L]$ for tem
 \paragraph{How constraints are defined.}
 Constraints in QASAMAP are organised in two tiers, derived from operational practice and ISO~13374 condition-monitoring guidelines, and version-controlled in the workspace as a single source of truth.
 
-\textbf{Tier~1 --- physical-state constraints} (this section, Table~\ref{tab:sensor-model-constraint}) are stored as a single source-of-truth configuration consumed by the constraints engine. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate the per-channel reference values $T_{\text{ref}}$, $V_{\text{ref}}$, $H_{\text{ref}}$, $P_{\text{ref}}$, $E_{\text{ref}}$, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The constraints engine consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the configuration values.
+\textbf{Tier~1 --- physical-state constraints} (this section, Table~\ref{tab:sens_con}) are stored as a single source-of-truth configuration consumed by the constraints engine. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate the per-channel reference values $T_{\text{ref}}$, $V_{\text{ref}}$, $H_{\text{ref}}$, $P_{\text{ref}}$, $E_{\text{ref}}$, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The constraints engine consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the configuration values.
 
 \textbf{Tier~2 --- scheduling constraints} (Chapter~6, Constraints (C1)--(C4)) are stored as the scheduling-layer configuration consumed by every solver in the comparative benchmark. \emph{(C1) one-hot} reflects the operational rule that a maintenance task is performed once per planning horizon per machine. \emph{(C2) slot-window capacity} ($C=3$ machines per active maintenance window) is set by the operator-defined crew availability and spare-parts policy. \emph{(C3) risk horizon} ($24$~h) is the operator-mandated deadline for any high-priority machine, derived from the historical mean-time-to-failure of cumulative-damage trajectories that exceed the danger threshold. \emph{(C4) must-schedule} is the closure rule that every machine flagged \texttt{needs\_maintenance} by Tier~1 enters the (C1) decision variables. The four scheduling constraints are not ML-tuned; they are operator-set integers that the scheduling layer of Chapter~6 must satisfy as hard constraints (MILP linear inequalities) or as penalty terms (QUBO), with the same numeric values across all solver paradigms to keep the comparison fair.
 
@@ -164,7 +164,7 @@ The two-tier organisation gives a clean responsibility split: Tier~1 produces \t
 \begin{table}[!htbp]
 \centering
 \caption{Sensor constraint space defining operational envelopes for anomaly classification.}
-\label{tab:sensor-model-constraint}
+\label{tab:sens_con}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -211,7 +211,7 @@ To demonstrate the effectiveness of the proposed multi-agent architecture, we pr
 \begin{table}[!htbp]
 \centering
 \caption{Comparative Evaluation of Multi-Agent vs.\ Monolithic Architecture.}
-\label{tab:multi_vs_mono}
+\label{tab:multi_mono}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -241,7 +241,7 @@ The multi-agent architecture wins on every quality metric despite higher tokens.
 The full streaming pipeline was run on $N=50$ machines (each $60$ readings $=$ $5$ windows of $10$) using the same constraints engine, priorities, and routing as Sections~5.3--5.4 with no parameter retuning.
 
 \subsection{Streaming Outcome Summary}
-After $5$ windows per machine, the constraints engine flagged $45$ of $50$ machines as needing maintenance — all CRITICAL — with the remaining $5$ at LOW (excluded from scheduling). Average priority $144.4$, health $0.479$, damage $0.438$, reflecting cumulative violations over the $50$-reading horizon (Table~\ref{tab:stream50_summary}).
+After $5$ windows per machine, the constraints engine flagged $45$ of $50$ machines as needing maintenance — all CRITICAL — with the remaining $5$ at LOW (excluded from scheduling). Average priority $144.4$, health $0.479$, damage $0.438$, reflecting cumulative violations over the $50$-reading horizon (Table~\ref{tab:str50}).
 
 
 \subsection{Cognitive-Layer to Scheduling-Layer Handover}
@@ -251,7 +251,7 @@ The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot du
 \begin{table}[!htbp]
 \centering
 \caption{Cognitive-layer output of the multi-agent pipeline on 50 streamed machines (5 analysis windows $\times$ 10 readings per window). All values are produced by the constraints engine; no parameters were retuned for this fleet size.}
-\label{tab:stream50_summary}
+\label{tab:str50}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}

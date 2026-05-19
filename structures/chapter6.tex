@@ -461,14 +461,14 @@ C_{\text{maint}}
 which is directly comparable across MILP, quantum-inspired, and quantum methods because it excludes the QUBO penalty terms internal to the heuristic formulations.
 
 \subsection{IBM Quantum Hardware Results}
-Table~\ref{tab:ibm_hardware} summarises the QAOA scaling study executed on the IBM Heron~r2 processor (\texttt{ibm\_fez}, 156 qubits) with $p=4$ QAOA layers and 4{,}096 measurement shots per run.
+Table~\ref{tab:ibm_hw} summarises the QAOA scaling study executed on the IBM Heron~r2 processor (\texttt{ibm\_fez}, 156 qubits) with $p=4$ QAOA layers and 4{,}096 measurement shots per run.
 
-The bold row $N=3$ in Table~\ref{tab:ibm_hardware} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
+The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
 \begin{table}[!htbp]
 \centering
 \caption{IBM Quantum hardware scaling study. Feasibility rate is the fraction of measurement shots yielding constraint-satisfying bitstrings. Circuit depth and gate counts are post-transpilation for the \texttt{ibm\_fez} topology. Beyond approximately $N=15$ machines the transpiled depth exceeds hardware coherence times and the output degrades to uniform noise.}
-\label{tab:ibm_hardware}
+\label{tab:ibm_hw}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -518,12 +518,12 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 \section{Analysis and Discussion}
 
 \subsection{Streaming Real-Time Data: Impact on Scheduling Complexity}
-End-to-end streaming sensor data through the full multi-agent pipeline produces priorities qualitatively different from synthetic uniform $[20,100]$ draws. The constraints engine accumulates violations, damage, and anomaly scores over multiple windows, yielding the priority distributions reported below. Table~\ref{tab:streaming_scheduling} summarises results across $N=3$--$15$ machines, each fed $50$ readings ($5$ windows $\times$ $10$ readings).
+End-to-end streaming sensor data through the full multi-agent pipeline produces priorities qualitatively different from synthetic uniform $[20,100]$ draws. The constraints engine accumulates violations, damage, and anomaly scores over multiple windows, yielding the priority distributions reported below. Table~\ref{tab:str_sch} summarises results across $N=3$--$15$ machines, each fed $50$ readings ($5$ windows $\times$ $10$ readings).
 
 \begin{table}[!htbp]
 \centering
 \caption{Streaming real-time data results. Priority scores, health and damage indices are derived from accumulated sensor constraint violations. QIEA becomes infeasible at $N\geq 8$ with streaming data, compared with $N>30$ on synthetic data.}
-\label{tab:streaming_scheduling}
+\label{tab:str_sch}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -568,14 +568,14 @@ Figure~\ref{fig:streaming-vs-synthetic} illustrates these findings. MILP remains
 \subsection{Complex-Constraint Streaming Pipeline with Hardware Validation}
 \label{sec:complex_streaming}
 
-The streaming benchmark of Table~\ref{tab:streaming_scheduling} compares solvers on the basic constraint set (one-hot $+$ slot-level capacity) using streaming-derived priorities. To verify that the conclusions transfer to a problem instance with the full predictive-maintenance constraint set --- including the active-window capacity that follows from the maintenance duration $d=4$ hours and the risk horizon that forces high-priority machines to start within $24$ hours --- we ran the complete pipeline on real-time streaming data without any synthetic shortcut: \texttt{RealtimeStreamSimulator} produced 30 sensor readings per machine in three 10-reading Kafka windows, the constraints engine of Chapter~5 derived priorities, risk states, and \texttt{needs\_maintenance} flags from accumulated violations, and the resulting problem was handed to (i) the complex MILP that enforces all four constraints simultaneously, (ii) QIEA on a complex QUBO with the same four constraints encoded as penalty terms, and (iii) the QAOA-XY hardware path of Algorithm~\ref{alg:qaoa_hardware} executed on \texttt{ibm\_fez}.
+The streaming benchmark of Table~\ref{tab:str_sch} compares solvers on the basic constraint set (one-hot $+$ slot-level capacity) using streaming-derived priorities. To verify that the conclusions transfer to a problem instance with the full predictive-maintenance constraint set --- including the active-window capacity that follows from the maintenance duration $d=4$ hours and the risk horizon that forces high-priority machines to start within $24$ hours --- we ran the complete pipeline on real-time streaming data without any synthetic shortcut: \texttt{RealtimeStreamSimulator} produced 30 sensor readings per machine in three 10-reading Kafka windows, the constraints engine of Chapter~5 derived priorities, risk states, and \texttt{needs\_maintenance} flags from accumulated violations, and the resulting problem was handed to (i) the complex MILP that enforces all four constraints simultaneously, (ii) QIEA on a complex QUBO with the same four constraints encoded as penalty terms, and (iii) the QAOA-XY hardware path of Algorithm~\ref{alg:qaoa_hardware} executed on \texttt{ibm\_fez}.
 
-Table~\ref{tab:complex_streaming_n3} reports the result for the $N=3$ instance ($T=4$, $n_{\text{bits}}=12$, average streaming priority 135.1, two of three machines at CRITICAL level). Two empirical observations are worth recording. First, the MILP optimum and the QAOA hardware result are \emph{numerically identical} ($\text{cost} = 300.00$, all three machines started at slot~0 in the first $24$-hour window). The QAOA-XY mixer's structural one-hot preservation, even at hardware-realistic depth (transpiled depth $801$, $644$ CZ gates) and with only $p=2$ layers, is sufficient to recover the optimum from a streaming-derived instance with the full complex-constraint set. Second, QIEA on the same complex QUBO returns a feasible but suboptimal schedule at cost $546.90$ ($+82.3\%$ gap), because its rotation-gate updates settle on a configuration in which one of the three machines is pushed to a later slot rather than maintained early; the full penalty landscape with the additional risk-horizon term is too rugged for the population-based search even at this small scale.
+Table~\ref{tab:cs_n3} reports the result for the $N=3$ instance ($T=4$, $n_{\text{bits}}=12$, average streaming priority 135.1, two of three machines at CRITICAL level). Two empirical observations are worth recording. First, the MILP optimum and the QAOA hardware result are \emph{numerically identical} ($\text{cost} = 300.00$, all three machines started at slot~0 in the first $24$-hour window). The QAOA-XY mixer's structural one-hot preservation, even at hardware-realistic depth (transpiled depth $801$, $644$ CZ gates) and with only $p=2$ layers, is sufficient to recover the optimum from a streaming-derived instance with the full complex-constraint set. Second, QIEA on the same complex QUBO returns a feasible but suboptimal schedule at cost $546.90$ ($+82.3\%$ gap), because its rotation-gate updates settle on a configuration in which one of the three machines is pushed to a later slot rather than maintained early; the full penalty landscape with the additional risk-horizon term is too rugged for the population-based search even at this small scale.
 
 \begin{table}[!htbp]
 \centering
 \caption{Complex-constraint streaming experiment ($N=3$, all four constraints enforced; problem instance derived directly from \texttt{RealtimeStreamSimulator} output). The QAOA hardware row is a measured submission to \texttt{ibm\_fez}; cost rows are pure scheduling cost (penalty terms excluded for fair comparison).}
-\label{tab:complex_streaming_n3}
+\label{tab:cs_n3}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -596,12 +596,12 @@ QAOA-XY @ \texttt{ibm\_fez} & \textbf{300.00} & yes (3/3) & \textbf{yes} & 91.5~
 
 This $N=3$ measured result is the thesis's strongest empirical equivalence between QAOA on NISQ hardware and exact branch-and-cut, achieved under the most stringent operating point (streaming-derived all-CRITICAL priorities, all four constraints, hardware post-selection). At $91.5$~s wall time vs MILP's $31.1$~ms, QAOA-XY here is a quantum \emph{validator} of the MILP optimum, not a production replacement.
 
-For the basic-constraint formulation, exact MILP/CBC dominates QIEA, SQA, and QAOA-sim across the streaming-derived sizes of Table~\ref{tab:streaming_scheduling} in well under one second, comfortably within the Chapter~5 60-s Kafka cycle. The complex-constraint streaming experiments below, however, expose a regime where the picture changes substantially.
+For the basic-constraint formulation, exact MILP/CBC dominates QIEA, SQA, and QAOA-sim across the streaming-derived sizes of Table~\ref{tab:str_sch} in well under one second, comfortably within the Chapter~5 60-s Kafka cycle. The complex-constraint streaming experiments below, however, expose a regime where the picture changes substantially.
 
 \subsection{Classical Metaheuristic Baselines: Simulated Annealing, Genetic Algorithm, Tabu Search}
 \label{sec:metaheuristics}
 
-The QUBO-based heuristics QIEA and SQA operate by translating constraints into penalty terms, which produces the penalty-dominated landscapes that defeat them at $N \geq 10$ on the streaming benchmark of Table~\ref{tab:streaming_scheduling}. Three well-known classical metaheuristics --- Simulated Annealing (SA), Genetic Algorithm (GA), and Tabu Search (TS) --- can be applied directly on the assignment representation $\mathbf{a} = (a_1, \ldots, a_N) \in \{0,\ldots,T-1\}^N$ instead of the binary $\{0,1\}^{NT}$ representation, so that the one-hot constraint (C1) is preserved \emph{by construction} and only the slot-window capacity (C2) and risk horizon (C3) need to be enforced via a feasibility-aware objective. To rule them out as a hidden alternative to QIEA/SQA before claiming a quantum advantage, all three were implemented with the lexicographic score
+The QUBO-based heuristics QIEA and SQA operate by translating constraints into penalty terms, which produces the penalty-dominated landscapes that defeat them at $N \geq 10$ on the streaming benchmark of Table~\ref{tab:str_sch}. Three well-known classical metaheuristics --- Simulated Annealing (SA), Genetic Algorithm (GA), and Tabu Search (TS) --- can be applied directly on the assignment representation $\mathbf{a} = (a_1, \ldots, a_N) \in \{0,\ldots,T-1\}^N$ instead of the binary $\{0,1\}^{NT}$ representation, so that the one-hot constraint (C1) is preserved \emph{by construction} and only the slot-window capacity (C2) and risk horizon (C3) need to be enforced via a feasibility-aware objective. To rule them out as a hidden alternative to QIEA/SQA before claiming a quantum advantage, all three were implemented with the lexicographic score
 \begin{equation}
 \mathcal{L}(\mathbf{a}) = M_{\text{big}} \cdot V(\mathbf{a}) + \mathcal{C}(\mathbf{a}),
 \end{equation}
@@ -609,12 +609,12 @@ where $V(\mathbf{a})$ is the total count of (C2)$+$(C3) violations and $\mathcal
 
 \textbf{Suitability for the multi-agent context.} All three are general-purpose combinatorial optimisers whose move operators we restricted to the assignment representation, eliminating the QUBO penalty translation that hurts QIEA/SQA. Their per-instance solve time at the streaming-derived sizes ($N \leq 30$) is in the tens-to-hundreds of milliseconds, well inside the 60-s Kafka cycle. They are therefore appropriate baselines against which the quantum and quantum-inspired methods must compete --- they share the same input representation as the multi-agent constraints engine and respect the same real-time budget.
 
-\textbf{Empirical result.} Table~\ref{tab:complex_streaming_n4n5} reports the head-to-head outcome on the $N=4$ and $N=5$ streaming-derived instances under the full constraint set (C1)--(C4). At $N=4$ the problem is borderline feasible (MILP returns the proven optimum at cost $1{,}336.67$); at $N=5$, with risk-horizon $\rho = 1$ slot and capacity $C = 3$, the problem becomes \emph{structurally infeasible} (5 CRITICAL machines all need slot 0, only 3 fit), and the question shifts from ``what is the cheapest schedule'' to ``which solver returns the most operationally usable schedule given the infeasibility''.
+\textbf{Empirical result.} Table~\ref{tab:cs_n45} reports the head-to-head outcome on the $N=4$ and $N=5$ streaming-derived instances under the full constraint set (C1)--(C4). At $N=4$ the problem is borderline feasible (MILP returns the proven optimum at cost $1{,}336.67$); at $N=5$, with risk-horizon $\rho = 1$ slot and capacity $C = 3$, the problem becomes \emph{structurally infeasible} (5 CRITICAL machines all need slot 0, only 3 fit), and the question shifts from ``what is the cheapest schedule'' to ``which solver returns the most operationally usable schedule given the infeasibility''.
 
 \begin{table}[!htbp]
 \centering
 \caption{Head-to-head comparison on streaming-derived complex-constraint instances at $N=4$ (MILP-feasible) and $N=5$ (MILP-infeasible). Cost is pure scheduling cost; ``Viol.'' is the count of (C2)+(C3) violations.}
-\label{tab:complex_streaming_n4n5}
+\label{tab:cs_n45}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -645,7 +645,7 @@ TS (feasibility-aware)     &  1{,}165.60 & no (V=2)  & $33$~ms
 \end{table}
 \FloatBarrier
 
-The $N=5$ column of Table~\ref{tab:complex_streaming_n4n5} carries the chapter's most informative result. Three observations:
+The $N=5$ column of Table~\ref{tab:cs_n45} carries the chapter's most informative result. Three observations:
 \begin{enumerate}
 \item \textbf{Classical solvers fail differently}. MILP reports infeasibility (5 CRITICAL machines cannot fit a $\rho=1$ horizon with $C=3$); SA, GA, TS reach $V=4$ violations; QIEA returns capacity-feasible but at cost $3{,}107.80$ ($2.6\times$ MILP best-effort) because its lower $\lambda_{\text{risk}}$ does not strictly enforce the horizon.
 \item \textbf{QAOA-XY hardware returns the lowest-cost feasible schedule}. On \texttt{ibm\_fez} ($p=2$, $4096$ shots, depth $1{,}226$, $1{,}935$ CZ), post-selection over the $0.24\%$ feasible shots gives cost $1{,}186.02$ — $1.3\%$ above MILP best-effort \emph{and} feasible where MILP is not. The XY-ring mixer (Algorithm~\ref{alg:qaoa_xy}) structurally preserves one-hot states, so even hardware-realistic noise leaves a feasible reservoir for post-selection (Algorithm~\ref{alg:qaoa_hardware}).
@@ -655,7 +655,7 @@ The $N=5$ column of Table~\ref{tab:complex_streaming_n4n5} carries the chapter's
 \subsection{Extended Streaming Benchmark at $N = 7, 9, 10$}
 \label{sec:extended_streaming}
 
-Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\ref{tab:extended_streaming} runs the full solver suite on fresh streaming instances at $N\in\{7,9,10\}$ under (C1)--(C4): MILP reports infeasibility, and QIEA/SA/GA/TS return violation-laden best-efforts whose violation counts grow with the number of CRITICAL machines contending for the $\rho=1$-slot horizon at capacity $C=3$.
+Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\ref{tab:ext_str} runs the full solver suite on fresh streaming instances at $N\in\{7,9,10\}$ under (C1)--(C4): MILP reports infeasibility, and QIEA/SA/GA/TS return violation-laden best-efforts whose violation counts grow with the number of CRITICAL machines contending for the $\rho=1$-slot horizon at capacity $C=3$.
 
 \begin{table}[!htbp]
 \centering
@@ -663,7 +663,7 @@ Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\re
 the full complex-constraint set (C1)--(C4); ``Viol.'' is the count of
 (C2)+(C3) violations under the lexicographic feasibility-aware score.
 All numerics from \texttt{extended\_benchmark\_N\{7,9,10\}.json}.}
-\label{tab:extended_streaming}
+\label{tab:ext_str}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -690,15 +690,15 @@ TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 
 \end{table}
 \FloatBarrier
 
-The QAOA-XY hardware row at $N=7$ is the second measured datum (after $N=5$ in Table~\ref{tab:complex_streaming_n4n5}): with $V=2$ violations and cost $3{,}069.07$, it beats every classical heuristic ($V=8$, cost $\geq 4{,}295.42$) by $36\%$ in cost while halving the violation count.
+The QAOA-XY hardware row at $N=7$ is the second measured datum (after $N=5$ in Table~\ref{tab:cs_n45}): with $V=2$ violations and cost $3{,}069.07$, it beats every classical heuristic ($V=8$, cost $\geq 4{,}295.42$) by $36\%$ in cost while halving the violation count.
 
 \begin{enumerate}
     \item \textbf{Classical feasibility cliff from $N=7$.} All $7/9/10$ machines reach CRITICAL with \texttt{risk\_state=True} (mean priority $156$--$169$); (C3) forces every machine into the first $\rho=1$ slot, but $C=3$ admits only three, so $N-C$ machines are necessarily late.
     \item \textbf{Violation count scales as $N-C$.} SA/GA/TS reach $V=8/10/11$ at $N=7/9/10$ exactly tracking the structural mismatch. TS = GA $<$ SA on cost, reflecting search efficiency on the same infeasibility floor — none eliminates it.
     \item \textbf{This regime is precisely the constraint-native
     quantum playground.} The empirical pattern of
-    Table~\ref{tab:extended_streaming} is the natural extrapolation
-    of the $N=5$ result of Table~\ref{tab:complex_streaming_n4n5}:
+    Table~\ref{tab:ext_str} is the natural extrapolation
+    of the $N=5$ result of Table~\ref{tab:cs_n45}:
     classical methods fall off the feasibility cliff because they
     encode constraints either exactly (MILP, returns infeasibility)
     or via penalties on a relaxed binary space (QIEA, SA, GA, TS,
@@ -751,7 +751,7 @@ Figure~\ref{fig:extended_cost_vs_N} encodes feasibility as marker shape (circle 
 \FloatBarrier
 
 \paragraph{Decoded maintenance schedule at $N=7$.}
-Figure~\ref{fig:extended_gantt_n7} translates each solver's bitstring into the operational Gantt that the multi-agent pipeline consumes. MILP packs three machines into slot $0$ and pushes four past the $24$-h horizon; QIEA and GA spread the late starts across slots $2$--$3$. None of the classical schedules satisfies (C3); the operational question is which late-start pattern minimises expected damage on the $N-C$ unscheduled-by-deadline machines. The QAOA-XY hardware panel (measured row of Table~\ref{tab:extended_streaming}) packs three machines at $h=0$, two at $h=18$, and pushes only \texttt{machine\_002} ($h=36$) and \texttt{machine\_000} ($h=54$) past the horizon — $V=2$ versus $V=8$ for the best classical.
+Figure~\ref{fig:extended_gantt_n7} translates each solver's bitstring into the operational Gantt that the multi-agent pipeline consumes. MILP packs three machines into slot $0$ and pushes four past the $24$-h horizon; QIEA and GA spread the late starts across slots $2$--$3$. None of the classical schedules satisfies (C3); the operational question is which late-start pattern minimises expected damage on the $N-C$ unscheduled-by-deadline machines. The QAOA-XY hardware panel (measured row of Table~\ref{tab:ext_str}) packs three machines at $h=0$, two at $h=18$, and pushes only \texttt{machine\_002} ($h=36$) and \texttt{machine\_000} ($h=54$) past the horizon — $V=2$ versus $V=8$ for the best classical.
 
 \begin{figure}[!htbp]
     \centering

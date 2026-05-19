@@ -8,11 +8,11 @@ The experimental evaluation is organized into four distinct components: (1) spat
 
 \section{Sensor and Target Variable Summary}
 
-The five continuous sensor channels exhibit the statistical profiles summarized in Table~\ref{tab:sensor_stats}. Temperature is the most discriminative sensor for anomaly detection, with a mean of 75.02\textdegree C and a Pearson correlation of $r = 0.447$ with the anomaly flag. Vibration shows a 19\% elevation in anomalous readings (mean 58.51) compared to normal readings (mean 49.18) and is the primary indicator of the Vibration Issue failure type. Humidity exhibits near-zero linear correlation with anomaly occurrence, contributing to fault detection through nonlinear interaction effects captured by the deep learning layers. Pressure and energy consumption similarly show weak linear correlations with anomaly occurrence but contribute to the detection of Pressure Drop and Electrical Fault failure types respectively.
+The five continuous sensor channels exhibit the statistical profiles summarized in Table~\ref{tab:sens_st}. Temperature is the most discriminative sensor for anomaly detection, with a mean of 75.02\textdegree C and a Pearson correlation of $r = 0.447$ with the anomaly flag. Vibration shows a 19\% elevation in anomalous readings (mean 58.51) compared to normal readings (mean 49.18) and is the primary indicator of the Vibration Issue failure type. Humidity exhibits near-zero linear correlation with anomaly occurrence, contributing to fault detection through nonlinear interaction effects captured by the deep learning layers. Pressure and energy consumption similarly show weak linear correlations with anomaly occurrence but contribute to the detection of Pressure Drop and Electrical Fault failure types respectively.
 \begin{table}[!htbp]
 \centering
 \caption{Descriptive Statistics of Sensor Variables ($n = 100{,}000$)}
-\label{tab:sensor_stats}
+\label{tab:sens_st}
 \begin{tabular}{lccccc}
 \hline
 \textbf{Sensor} & \textbf{Min} & \textbf{Max} & \textbf{Mean} & \textbf{Std Dev} & \textbf{Corr.\ w/ Anomaly} \\
@@ -25,11 +25,11 @@ Energy (kWh)      & 0.50   & 5.00   & 2.75   & 1.30  & $\approx 0.006$ \\
 \hline
 \end{tabular}
 \end{table}
-The target variable distributions are summarized in Table~\ref{tab:target_stats}. The binary anomaly flag shows an 8.92\% positive rate, which is characteristic of real industrial anomaly detection problems and drives the choice of F1-score as the primary evaluation metric. The failure type variable exhibits severe class imbalance, with Normal operation constituting 91.90\% of readings. The predicted remaining useful life (RUL) variable follows a near-uniform distribution across the range 1--499 hours, with 16,333 critical readings below 50 hours and 1,637 readings below 10 hours representing machines on the verge of imminent failure.
+The target variable distributions are summarized in Table~\ref{tab:tgt_st}. The binary anomaly flag shows an 8.92\% positive rate, which is characteristic of real industrial anomaly detection problems and drives the choice of F1-score as the primary evaluation metric. The failure type variable exhibits severe class imbalance, with Normal operation constituting 91.90\% of readings. The predicted remaining useful life (RUL) variable follows a near-uniform distribution across the range 1--499 hours, with 16,333 critical readings below 50 hours and 1,637 readings below 10 hours representing machines on the verge of imminent failure.
 \begin{table}[!htbp]
 \centering
 \caption{Target Variable Distributions}
-\label{tab:target_stats}
+\label{tab:tgt_st}
 \begin{tabular}{lcc}
 \hline
 \textbf{Target Variable} & \textbf{Value / Class} & \textbf{Count (\%)} \\
@@ -80,11 +80,11 @@ Figure~\ref{fig:cc_matrix_exp} visualises the cross-correlation strength matrix 
 
 \textbf{Anchor node selection.} The anchor node is the machine with the highest out-degree centrality in the cross-correlation graph, defined as $d^+_i = \sum_j A_{ij}$, where $A$ is the unnormalised adjacency matrix. Machine~40 achieved the highest out-degree centrality ($d^+_{40} = 17$), meaning it exerts direct directional influence on 17 other machines---more than any other node in the graph. This makes Machine~40 the natural choice as the propagation source: perturbations originating at Machine~40 have the widest reach across the machine pool, and monitoring Machine~40 provides early warning signals for the largest dependent subgraph.
 
-Table~\ref{tab:centrality_ranking} presents the top five machines ranked by out-degree centrality (influencers) and the top five ranked by in-degree centrality (dependents). The influencer set {26, 38, 42, 47, 14} represents machines whose temperature dynamics predictably lead other machines, while the dependent set {29, 40, 28, 8, 16} represents machines whose temperature is most strongly predicted by upstream influencers.
+Table~\ref{tab:cent_rnk} presents the top five machines ranked by out-degree centrality (influencers) and the top five ranked by in-degree centrality (dependents). The influencer set {26, 38, 42, 47, 14} represents machines whose temperature dynamics predictably lead other machines, while the dependent set {29, 40, 28, 8, 16} represents machines whose temperature is most strongly predicted by upstream influencers.
 \begin{table}[!htbp]
 \centering
 \caption{Top Machines by Graph Centrality (Cross-Correlation Adjacency)}
-\label{tab:centrality_ranking}
+\label{tab:cent_rnk}
 \begin{tabular}{clcc}
 \hline
 \textbf{Rank} & \textbf{Machine (Influencer)} & \textbf{Out-Degree} & \textbf{Max $|r|$} \\
@@ -161,11 +161,11 @@ Workflow: 1 sensor aktif di Machine 40 -> AnchorBufferManager -> T-GCN Graph
 \end{figure}
 This anchor-driven design has two immediate operational benefits. First, it reduces the minimum sensor instrumentation required for fleet-wide predictive maintenance: only Machine~40 needs a complete, high-reliability sensor suite, while dependents can operate with cheaper, partial instrumentation. Second, it enables early-warning propagation: because the graph encodes lagged thermal and mechanical influence relationships, an anomaly detected at Machine~40 generates predictive alerts for dependent machines before their own local sensors cross warning thresholds. The \texttt{propagate\_from\_anchor} function formalises this behaviour by injecting synthetic perturbations at the anchor and measuring their graph-mediated impact, confirming that the cross-correlation adjacency structure captures real, operationally relevant cross-machine dynamics.
 
-The per-feature forecasting results across the five sensor channels and all three models are presented in Table~\ref{tab:forecasting_results}. Summary performance metrics and training times are presented in Table~\ref{tab:forecasting_summary}.
+The per-feature forecasting results across the five sensor channels and all three models are presented in Table~\ref{tab:fcst_res}. Summary performance metrics and training times are presented in Table~\ref{tab:fcst_sum}.
 \begin{table}[!htbp]
 \centering
 \caption{Per-Feature Forecasting Results: MSE, RMSE, MAE, and R\textsuperscript{2} for Each Model and Sensor}
-\label{tab:forecasting_results}
+\label{tab:fcst_res}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{llcccc}
 \hline
@@ -198,7 +198,7 @@ The per-feature forecasting results across the five sensor channels and all thre
 \begin{table}[!htbp]
 \centering
 \caption{Forecasting Model Summary: Average Metrics and Training Time}
-\label{tab:forecasting_summary}
+\label{tab:fcst_sum}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Avg MSE} & \textbf{Avg RMSE} & \textbf{Avg MAE} & \textbf{Avg R\textsuperscript{2}} & \textbf{Train Time (s)} \\
@@ -243,7 +243,7 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
 The cross-correlation graph propagation mechanism is further validated through the multi-source simulation shown in Figure~\ref{fig:graph_sim_exp}, where three source machines (Machine~40, 27, 14) drive three dependent machines (Machine~1, 50, 32) through the T-GCN adjacency edges. During normal operation (steps 0--50), dependent machines mirror source oscillations with a characteristic lag; at step~50, a coordinated anomaly initiates joint collapse across all traces. This behaviour validates the \texttt{propagate\_from\_anchor} function and confirms that the learned graph structure encodes real directional influence relationships.
 
 \paragraph{Prediction versus Actual Sample Comparison.}
-Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versus actual sensor trajectories over 200 test samples for temperature, vibration, humidity, and pressure, with per-model R\textsuperscript{2} values annotated in each panel legend. The T-GCN (CC-Adj) achieves the highest R\textsuperscript{2} across all four channels: temperature (0.734), vibration (0.870), humidity (0.740), and pressure (0.768), compared to the OptimizedLSTM (0.668, 0.829, 0.610, 0.644) and Hybrid LSTM-GCN (0.682, 0.844, 0.645, 0.685). All three models track the actual sensor trajectories closely at short time scales, with prediction lines tightly clustered around the actual black line for the majority of samples. The largest deviations occur at sharp inflection points --- particularly visible in the temperature and humidity panels around samples 75 and 175 --- where rapid sensor transitions challenge autoregressive prediction. The vibration channel shows the tightest prediction-actual agreement across all models (all R\textsuperscript{2} $> 0.82$), consistent with its relatively smooth, quasi-periodic dynamics. These sample comparison plots confirm that the quantitative R\textsuperscript{2} values reported in Tables~\ref{tab:forecasting_results} and~\ref{tab:forecasting_summary} correspond to visually meaningful predictive accuracy that would support reliable real-time streaming inference in the QASAMAP pipeline.
+Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versus actual sensor trajectories over 200 test samples for temperature, vibration, humidity, and pressure, with per-model R\textsuperscript{2} values annotated in each panel legend. The T-GCN (CC-Adj) achieves the highest R\textsuperscript{2} across all four channels: temperature (0.734), vibration (0.870), humidity (0.740), and pressure (0.768), compared to the OptimizedLSTM (0.668, 0.829, 0.610, 0.644) and Hybrid LSTM-GCN (0.682, 0.844, 0.645, 0.685). All three models track the actual sensor trajectories closely at short time scales, with prediction lines tightly clustered around the actual black line for the majority of samples. The largest deviations occur at sharp inflection points --- particularly visible in the temperature and humidity panels around samples 75 and 175 --- where rapid sensor transitions challenge autoregressive prediction. The vibration channel shows the tightest prediction-actual agreement across all models (all R\textsuperscript{2} $> 0.82$), consistent with its relatively smooth, quasi-periodic dynamics. These sample comparison plots confirm that the quantitative R\textsuperscript{2} values reported in Tables~\ref{tab:fcst_res} and~\ref{tab:fcst_sum} correspond to visually meaningful predictive accuracy that would support reliable real-time streaming inference in the QASAMAP pipeline.
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{figures/images/prediction-vs-actual.png}
@@ -360,11 +360,11 @@ The second experimental component evaluates machine health classification and re
 
 \subsection{Classification Results}
 
-\paragraph{Machine Status Classification.} The machine status classification task involves predicting the three-class machine operating state (Running, Warning, Stopped) from the sensor feature set. Results are presented in Table~\ref{tab:cls_machine_status}.
+\paragraph{Machine Status Classification.} The machine status classification task involves predicting the three-class machine operating state (Running, Warning, Stopped) from the sensor feature set. Results are presented in Table~\ref{tab:cls_stat}.
 \begin{table}[!htbp]
 \centering
 \caption{Machine Status Classification Results (3-Class)}
-\label{tab:cls_machine_status}
+\label{tab:cls_stat}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUC-ROC} & \textbf{MCC} \\
@@ -377,11 +377,11 @@ TabNet               & 0.7717 & 0.7587 & 0.7444 & 0.6623 & 0.8538 & 0.5994 \\
 \hline
 \end{tabular}
 \end{table}
-\paragraph{Anomaly Flag Classification.} The anomaly flag binary classification task predicts whether a given sensor reading corresponds to an anomalous machine state. Results are presented in Table~\ref{tab:cls_anomaly_flag}.
+\paragraph{Anomaly Flag Classification.} The anomaly flag binary classification task predicts whether a given sensor reading corresponds to an anomalous machine state. Results are presented in Table~\ref{tab:cls_anom}.
 \begin{table}[!htbp]
 \centering
 \caption{Anomaly Flag Classification Results (Binary)}
-\label{tab:cls_anomaly_flag}
+\label{tab:cls_anom}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUC-ROC} & \textbf{MCC} \\
@@ -394,11 +394,11 @@ TabNet               & 0.9981 & 0.9981 & 0.9981 & 0.9981 & 0.9993 & 0.9942 \\
 \hline
 \end{tabular}
 \end{table}
-\paragraph{Failure Type Classification.} The failure type multi-class classification task predicts one of five failure categories from the sensor feature set. This is the most challenging classification task due to severe class imbalance. Results are presented in Table~\ref{tab:cls_failure_type}.
+\paragraph{Failure Type Classification.} The failure type multi-class classification task predicts one of five failure categories from the sensor feature set. This is the most challenging classification task due to severe class imbalance. Results are presented in Table~\ref{tab:cls_fail}.
 \begin{table}[!htbp]
 \centering
 \caption{Failure Type Classification Results (5-Class, Macro-Averaged)}
-\label{tab:cls_failure_type}
+\label{tab:cls_fail}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUC-ROC} & \textbf{MCC} \\
@@ -411,11 +411,11 @@ TabNet               & 0.8940 & 0.8527 & 0.8330 & 0.8421 & 0.9797 & 0.8149 \\
 \hline
 \end{tabular}
 \end{table}
-\paragraph{Downtime Risk Classification.} The downtime risk binary classification task predicts whether a machine reading is associated with a high downtime risk. Results are presented in Table~\ref{tab:cls_downtime_risk}.
+\paragraph{Downtime Risk Classification.} The downtime risk binary classification task predicts whether a machine reading is associated with a high downtime risk. Results are presented in Table~\ref{tab:cls_down}.
 \begin{table}[!htbp]
 \centering
 \caption{Downtime Risk Classification Results (Binary)}
-\label{tab:cls_downtime_risk}
+\label{tab:cls_down}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUC-ROC} & \textbf{MCC} \\
@@ -428,11 +428,11 @@ TabNet               & 0.9981 & 0.9981 & 0.9981 & 0.9981 & 0.9993 & 0.9942 \\
 \hline
 \end{tabular}
 \end{table}
-\paragraph{Maintenance Required Classification.} The maintenance required binary classification task predicts whether a machine requires maintenance based on the current sensor reading. Results are presented in Table~\ref{tab:cls_maintenance}.
+\paragraph{Maintenance Required Classification.} The maintenance required binary classification task predicts whether a machine requires maintenance based on the current sensor reading. Results are presented in Table~\ref{tab:cls_maint}.
 \begin{table}[!htbp]
 \centering
 \caption{Maintenance Required Classification Results (Binary)}
-\label{tab:cls_maintenance}
+\label{tab:cls_maint}
 \begin{tabular}{lcccccc}
 \hline
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{AUC-ROC} & \textbf{MCC} \\
@@ -447,11 +447,11 @@ TabNet               & 0.8654 & 0.8602 & 0.8542 & 0.8407 & 0.9298 & 0.7040 \\
 \end{table}
 \subsection{Regression Results: Predicted Remaining Useful Life}
 
-The regression task involves predicting the continuous Remaining Useful Life (RUL) value in hours from the sensor feature set. This is the most challenging task in the supervised learning experiment owing to the near-uniform RUL distribution and the complex, multi-factor RUL dynamics across different failure modes. Results are presented in Table~\ref{tab:reg_rul}.
+The regression task involves predicting the continuous Remaining Useful Life (RUL) value in hours from the sensor feature set. This is the most challenging task in the supervised learning experiment owing to the near-uniform RUL distribution and the complex, multi-factor RUL dynamics across different failure modes. Results are presented in Table~\ref{tab:rul_reg}.
 \begin{table}[!htbp]
 \centering
 \caption{RUL Regression Results}
-\label{tab:reg_rul}
+\label{tab:rul_reg}
 \begin{tabular}{lccccc}
 \hline
 \textbf{Model} & \textbf{MAE} & \textbf{RMSE} & \textbf{R\textsuperscript{2}} & \textbf{Explained Variance} \\
@@ -468,11 +468,11 @@ The uniformly low R\textsuperscript{2} values (0.12--0.19) across all five model
 
 \subsection{Best Model Summary}
 
-The best-performing model for each target, along with the key performance metric, is summarized in Table~\ref{tab:best_models}.
+The best-performing model for each target, along with the key performance metric, is summarized in Table~\ref{tab:best_mdl}.
 \begin{table}[!htbp]
 \centering
 \caption{Best Performing Model per Target Variable}
-\label{tab:best_models}
+\label{tab:best_mdl}
 \begin{tabular}{llcc}
 \hline
 \textbf{Target} & \textbf{Best Model} & \textbf{Key Metric} & \textbf{Value} \\

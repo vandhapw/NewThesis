@@ -13,12 +13,12 @@ The architecture is containerized using Docker and deployed on an Ubuntu 22.04 L
 
 Building on the dataset overview of Chapter~3 (\S3.3), this section reports the descriptive statistics that drive the modelling decisions of the forecasting layer; redundant enumeration of fields and basic correlations is omitted. The dataset is complete (no missing values across all $1{,}300{,}000$ data points), enabling unbroken sliding-window training without imputation.
 
-Table~\ref{tab:sensor_stats} summarises the five continuous sensor channels. Two distributional properties drive forecasting-architecture choices. \emph{Vibration} shows a $19\%$ elevation in anomalous readings (mean $58.51$ vs $49.18$ normal) and is the primary indicator of the \texttt{Vibration Issue} failure type, motivating its first-difference treatment in the T-GCN input. \emph{Humidity} has near-zero linear correlation with the anomaly flag yet remains predictive through nonlinear cross-sensor interactions, supporting the inclusion of multi-channel feature engineering rather than per-channel modelling.
+Table~\ref{tab:sens_st} summarises the five continuous sensor channels. Two distributional properties drive forecasting-architecture choices. \emph{Vibration} shows a $19\%$ elevation in anomalous readings (mean $58.51$ vs $49.18$ normal) and is the primary indicator of the \texttt{Vibration Issue} failure type, motivating its first-difference treatment in the T-GCN input. \emph{Humidity} has near-zero linear correlation with the anomaly flag yet remains predictive through nonlinear cross-sensor interactions, supporting the inclusion of multi-channel feature engineering rather than per-channel modelling.
 
 \begin{table}[!htbp]
 \centering
 \caption{Descriptive Statistics of Sensor Variables ($n = 100{,}000$)}
-\label{tab:sensor_stats}
+\label{tab:sens_st}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{5pt}
@@ -35,12 +35,12 @@ Energy (kWh)      & 0.50   & 5.00   & 2.75   & 1.30  & $\approx$ 0.006 \\
 \end{tabular}
 \end{table}
 
-Target-variable distributions (Table~\ref{tab:target_stats}) reflect the operational rarity of failure: $8.92\%$ anomaly positives, $9.85\%$ stopped + $10.06\%$ warning machine-statuses, severe failure-type imbalance ($91.90\%$ Normal vs four minority classes at $1$--$3\%$), and a near-uniform RUL distribution (mean $234$~h, std $150$~h). These properties drive the use of F1-score as the primary classification metric and motivate the supervised-benchmark design of \S4.7 below.
+Target-variable distributions (Table~\ref{tab:tgt_st}) reflect the operational rarity of failure: $8.92\%$ anomaly positives, $9.85\%$ stopped + $10.06\%$ warning machine-statuses, severe failure-type imbalance ($91.90\%$ Normal vs four minority classes at $1$--$3\%$), and a near-uniform RUL distribution (mean $234$~h, std $150$~h). These properties drive the use of F1-score as the primary classification metric and motivate the supervised-benchmark design of \S4.7 below.
 
 \begin{table}[!htbp]
 \centering
 \caption{Target Variable Distributions}
-\label{tab:target_stats}
+\label{tab:tgt_st}
 \small
 \renewcommand{\arraystretch}{1.05}
 \begin{tabular}{lccl}
@@ -113,7 +113,7 @@ The Kafka topic is configured with three partitions and replication factor 1, ap
 \begin{table}[!htbp]
 \centering
 \caption{Kafka Message Schema - Raw Sensor Data}
-\label{tab:kafka_schema}
+\label{tab:kf_sch}
 \renewcommand{\arraystretch}{1.2}
 \begin{tabularx}{\textwidth}{
 >{\raggedright\arraybackslash}m{3cm}
@@ -233,11 +233,11 @@ The optimal lag $\tau_{ij}^* = \arg\max_{\tau}\, \lvert r_{ij}(\tau) \rvert$ ide
 \State \Return $\mathcal{G}$, strength\_matrix
 \end{algorithmic}
 \end{algorithm}
-The resulting adjacency structure for the 50-machine fleet reveals several significant properties, summarized in Table \ref{tab:graph-structural}.
+The resulting adjacency structure for the 50-machine fleet reveals several significant properties, summarized in Table \ref{tab:graph_st}.
 \begin{table}[!htbp]
 \centering
 \caption{Graph Structural Properties}
-\label{tab:graph-structural}
+\label{tab:graph_st}
 \renewcommand{\arraystretch}{1.2}
 \begin{tabularx}{\textwidth}{
 >{\raggedright\arraybackslash}m{4cm}
@@ -270,12 +270,12 @@ The cross-correlation graph for T-GCN comprises 50 nodes (machines) and 538 dire
 
 \textbf{Anchor node selection.} The anchor node is the machine with the highest out-degree centrality in the cross-correlation graph, defined as $d^+_i = \sum_j A_{ij}$, where $A$ is the unnormalised adjacency matrix. Machine~40 achieved the highest out-degree centrality ($d^+_{40} = 17$), meaning it exerts direct directional influence on 17 other machines---more than any other node in the graph. This makes Machine~40 the natural choice as the propagation source: perturbations originating at Machine~40 have the widest reach across the machine pool, and monitoring Machine~40 provides early warning signals for the largest dependent subgraph.
 
-Table~\ref{tab:centrality_ranking} presents the top five machines ranked by out-degree centrality (influencers) and the top five ranked by in-degree centrality (dependents). The influencer set \{26, 38, 42, 47, 14\} represents machines whose temperature dynamics predictably lead other machines, while the dependent set \{29, 40, 28, 8, 16\} represents machines whose temperature is most strongly predicted by upstream influencers.
+Table~\ref{tab:cent_rnk} presents the top five machines ranked by out-degree centrality (influencers) and the top five ranked by in-degree centrality (dependents). The influencer set \{26, 38, 42, 47, 14\} represents machines whose temperature dynamics predictably lead other machines, while the dependent set \{29, 40, 28, 8, 16\} represents machines whose temperature is most strongly predicted by upstream influencers.
 
 \begin{table}[!htbp]
 \centering
 \caption{Top Machines by Graph Centrality (Cross-Correlation Adjacency)}
-\label{tab:centrality_ranking}
+\label{tab:cent_rnk}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{6pt}
@@ -348,7 +348,7 @@ where $\hat{\mathbf{y}} \in \mathbb{R}^{7}$ denotes the predicted feature vector
 \begin{table}[!htbp]
 \centering
 \caption{Model Hyperparameters and Training Configuration}
-\label{tab:tgcn_hyperparams}
+\label{tab:tgcn_hyp}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -438,12 +438,12 @@ The forecasting performance of the proposed T-GCN with cross-correlation adjacen
 
 \subsection{Per-Feature Forecasting Performance}
 
-The per-feature forecasting results across the five sensor channels and all three models are presented in Table~\ref{tab:forecasting_results}. Summary performance metrics and training times are presented in Table~\ref{tab:forecasting_summary}.
+The per-feature forecasting results across the five sensor channels and all three models are presented in Table~\ref{tab:fcst_res}. Summary performance metrics and training times are presented in Table~\ref{tab:fcst_sum}.
 
 \begin{table}[!htbp]
 \centering
 \caption{Per-Feature Forecasting Results: MSE, RMSE, MAE, and $R^2$ for Each Model and Sensor}
-\label{tab:forecasting_results}
+\label{tab:fcst_res}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{4pt}
@@ -480,7 +480,7 @@ The per-feature forecasting results across the five sensor channels and all thre
 \begin{table}[!htbp]
 \centering
 \caption{Forecasting Model Summary: Average Metrics and Training Time}
-\label{tab:forecasting_summary}
+\label{tab:fcst_sum}
 \small
 \renewcommand{\arraystretch}{1.05}
 \setlength{\tabcolsep}{5pt}
@@ -528,7 +528,7 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
     \label{fig:mae_degradation}
 \end{figure}
 
-Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versus actual sensor trajectories over 200 test samples for temperature, vibration, humidity, and pressure, with per-model $R^2$ values annotated in each panel legend. The T-GCN (CC-Adj) achieves the highest $R^2$ across all four channels: temperature (0.734), vibration (0.870), humidity (0.740), and pressure (0.768), compared to the OptimizedLSTM (0.668, 0.829, 0.610, 0.644) and Hybrid LSTM-GCN (0.682, 0.844, 0.645, 0.685). These sample comparison plots confirm that the quantitative $R^2$ values reported in Tables~\ref{tab:forecasting_results} and~\ref{tab:forecasting_summary} correspond to visually meaningful predictive accuracy that would support reliable real-time streaming inference in the QASAMAP pipeline.
+Figure~\ref{fig:pred_vs_actual} presents a four-panel overlay of predicted versus actual sensor trajectories over 200 test samples for temperature, vibration, humidity, and pressure, with per-model $R^2$ values annotated in each panel legend. The T-GCN (CC-Adj) achieves the highest $R^2$ across all four channels: temperature (0.734), vibration (0.870), humidity (0.740), and pressure (0.768), compared to the OptimizedLSTM (0.668, 0.829, 0.610, 0.644) and Hybrid LSTM-GCN (0.682, 0.844, 0.645, 0.685). These sample comparison plots confirm that the quantitative $R^2$ values reported in Tables~\ref{tab:fcst_res} and~\ref{tab:fcst_sum} correspond to visually meaningful predictive accuracy that would support reliable real-time streaming inference in the QASAMAP pipeline.
 
 \begin{figure}[!htbp]
     \centering
