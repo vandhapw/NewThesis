@@ -124,29 +124,8 @@ and non-blocking dispatch strategy.
 \subsection{Kafka Consumer with Sliding Window}
 The system consumes messages from a Kafka topic where each message represents a single sensor reading with six dimensions: temperature, humidity, vibration, pressure, energy consumption, and mechanical load. The consumer implements a per-machine windowing
 mechanism that buffers exactly W=10 consecutive readings before dispatching a complete window
-to the agent pipeline:
-\begin{algorithm}[!htbp]
-\small
-\caption{Non-Blocking Windowed Stream Processing}
-\label{alg:stream_processing}
-\begin{algorithmic}[1]
-\Require Kafka stream $\mathcal{S}$, window size $W = 10$
-\Ensure Continuous maintenance decisions
-\State buffers $\gets \{\}$ \Comment{Per-machine sliding windows}
-\State pool $\gets$ ThreadPoolExecutor(max\_workers = 4)
-\While{true}
-    \State msg $\gets$ kafka\_consumer.poll()
-    \State reading $\gets$ parse(msg) \Comment{Convert to SensorReading}
-    \State buffers[reading.machine\_id].append(reading)
-    \If{$|$buffers[reading.machine\_id]$| \geq W$}
-        \State window $\gets$ buffers[reading.machine\_id]
-        \State buffers[reading.machine\_id] $\gets [\,]$
-        \State pool.submit(orchestrator.process, window)
-        \State \Comment{Non-blocking: consumer continues immediately}
-    \EndIf
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
+to the agent pipeline. The non-blocking consumer loop --- which polls Kafka, appends each parsed reading to its per-machine buffer, and dispatches a full window to a worker-thread pool without blocking further ingestion --- is given in Algorithm~\ref{alg:stream_processing} (Appendix~\ref{app:algorithms}).
+
 The window buffer is thread-safe (protected by a threading.Lock) since the Kafka consumer and
 worker threads operate concurrently. The choice of W=10 represents a design trade-off: smaller windows provide faster response but less statistical power for anomaly detection; larger windows improve detection accuracy but increase response latency. With per-minute sensor readings, W=10 provides a 10-minute analysis window, which aligns with industrial maintenance decision-making timescales. 
 
