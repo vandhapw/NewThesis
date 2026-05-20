@@ -72,6 +72,36 @@ RUL (hours)          & Mean: 234.27 h           & Std: 150.06 h   & --- \\
 \end{tabular}
 \end{table}
 
+\subsection{Positioning Against Public Benchmark Datasets}
+
+To place the present dataset in the context of recent anomaly-detection and prognostics research, Table~\ref{tab:dataset_cmp} compares it with three public benchmark datasets that remain widely used as references in current multivariate time-series studies~\cite{wang_survey_2025}. The comparison is structural --- domain, instrumentation density, label granularity, and scale --- and is deliberately not a performance ranking: each dataset originates from a different physical process, so accuracy figures reported in the literature for one dataset are not directly transferable to another.
+
+\begin{table}[!htbp]
+\centering
+\caption{Comparison with public predictive-maintenance benchmark datasets.}
+\label{tab:dataset_cmp}
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}m{2.5cm}
+>{\raggedright\arraybackslash}m{2.3cm}
+>{\centering\arraybackslash}m{1.0cm}
+>{\raggedright\arraybackslash}X
+>{\raggedright\arraybackslash}m{2.9cm}
+}
+\toprule
+\textbf{Dataset} & \textbf{Domain} & \textbf{Chan.} & \textbf{Task / labels} & \textbf{Scale} \\
+\midrule
+This study & Smart manufacturing & 5 & Anomaly, failure type, downtime risk, maintenance, status, RUL (6 targets) & 100{,}000 readings, 50 machines; 8.92\% anomalous \\
+AI4I 2020 \cite{matzka_explainable_2020} & Machine predictive maintenance & 5 & Five failure modes (TWF, HDF, PWF, OSF, RNF) & 10{,}000 readings; 3.39\% failure \\
+NASA C-MAPSS \cite{saxena_damage_2008} & Turbofan engine prognostics & 21 & Remaining useful life (regression) & Four run-to-failure sub-sets \\
+SWaT \cite{mathur_swat_2016} & Water-treatment ICS & 51 & Attack vs.\ normal & 11-day testbed; 36 staged attacks \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three observations follow. First, the present dataset is mid-scale: an order of magnitude larger than AI4I~2020 yet with a comparable five-channel sensor footprint, so the two are directly comparable in instrumentation while differing in sample size. Second, it carries the broadest label set of the four --- six prediction targets spanning detection, prognostics, and maintenance decision --- whereas C-MAPSS is a pure RUL-regression benchmark and SWaT a binary attack-detection benchmark. Third, its 8.92\% anomaly rate is the same order of magnitude as the 3.39\% machine-failure rate of AI4I~2020, indicating a comparably imbalanced positive class rather than an artificially balanced distribution.
+
 \section{Real-Time Sensor Data Ingestion}
 Physical active sensor is performed by a environmental sensor, deployed within the manufacturing environment. The device exposes a REST API endpoint returning a JSON payload containing seven environmental parameters at a 10-second polling interval. The Kafka bridge, implemented as a Python producer container, executes the following loop:
 \begin{algorithm}[!htbp]
@@ -500,12 +530,33 @@ Although the T-GCN requires a longer training time (111.28 seconds vs.\ 52.56 se
 
 \subsection{Forecasting Visualisations}
 
-Figure~\ref{fig:model_performance} presents a four-panel performance summary comparing the three forecasting architectures across $R^2$ per feature, MSE per feature, aggregate metrics, and training loss convergence. The top-left panel confirms T-GCN's consistent $R^2$ advantage across all seven sensor channels. The bottom-right training loss convergence panel is particularly informative: T-GCN converges most rapidly, dropping steeply between epochs 0 and 4 and stabilising at a final loss of $\approx$0.024, substantially below the OptimizedLSTM final loss of $\approx$0.031 and the Hybrid LSTM-GCN loss of $\approx$0.028. This rapid convergence reflects the graph convolution layers' ability to immediately leverage cross-machine spatial structure from epoch 1.
+Figure~\ref{fig:model_performance} summarises forecasting performance across four panels. Panel~(\subref{fig:model_performance_a}) reports the $R^2$ score per feature and confirms the consistent T-GCN advantage across all seven sensor channels. Panel~(\subref{fig:model_performance_b}) shows the per-feature MSE, in which the engineered \texttt{temp\_vibe\_id} interaction term dominates the absolute error magnitude while the five raw channels remain comparatively small. Panel~(\subref{fig:model_performance_c}) aggregates the metrics, and panel~(\subref{fig:model_performance_d}) traces training loss convergence: T-GCN converges most rapidly, dropping steeply between epochs 0 and 4 and stabilising at a final loss of $\approx$0.024, substantially below the OptimizedLSTM final loss of $\approx$0.031 and the Hybrid LSTM-GCN loss of $\approx$0.028. This rapid convergence reflects the graph convolution layers' ability to immediately leverage cross-machine spatial structure from epoch~1.
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/images/model-performance-lstm-tgcn-hybrid.png}
-    \caption{Model performance comparison across metrics and convergence.}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/fig44_model_perf_a.png}
+        \caption{$R^2$ score per feature.}
+        \label{fig:model_performance_a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/fig44_model_perf_b.png}
+        \caption{MSE per feature.}
+        \label{fig:model_performance_b}
+    \end{subfigure}
+
+    \vspace{0.7em}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/fig44_model_perf_c.png}
+        \caption{Aggregate metrics.}
+        \label{fig:model_performance_c}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/fig44_model_perf_d.png}
+        \caption{Training loss convergence.}
+        \label{fig:model_performance_d}
+    \end{subfigure}
+    \caption{Forecasting performance: LSTM vs T-GCN vs Hybrid.}
     \label{fig:model_performance}
 \end{figure}
 
