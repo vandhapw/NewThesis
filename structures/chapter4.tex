@@ -562,19 +562,20 @@ Figure~\ref{fig:model_performance} summarises forecasting performance across fou
 
 Figure~\ref{fig:multi_horizon} shows the autoregressive rollout prediction performance across 10 forecast horizon steps for four sensor channels (temperature, vibration, humidity, pressure), with one panel per model: OptimizedLSTM~(\subref{fig:multi_horizon_a}), T-GCN~(\subref{fig:multi_horizon_b}), and Hybrid LSTM-GCN~(\subref{fig:multi_horizon_c}). The T-GCN uncertainty bands (gold shading) are generally narrower than those of the OptimizedLSTM (blue shading) for the humidity and pressure channels, indicating more consistent multi-step predictions across different starting windows.
 
-\begin{figure}[!htbp]
+\begin{landscape}
+\begin{figure}[ht]
     \centering
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.22\paperheight}
         \includegraphics[width=\textwidth]{figures/images/multi_horizon_a.png}
         \caption{OptimizedLSTM.}
         \label{fig:multi_horizon_a}
     \end{subfigure}\hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.22\paperheight}
         \includegraphics[width=\textwidth]{figures/images/multi_horizon_b.png}
         \caption{T-GCN (CC-Adj).}
         \label{fig:multi_horizon_b}
     \end{subfigure}\hfill
-    \begin{subfigure}[b]{0.32\textwidth}
+    \begin{subfigure}[b]{0.22\paperheight}
         \includegraphics[width=\textwidth]{figures/images/multi_horizon_c.png}
         \caption{Hybrid LSTM-GCN.}
         \label{fig:multi_horizon_c}
@@ -582,6 +583,7 @@ Figure~\ref{fig:multi_horizon} shows the autoregressive rollout prediction perfo
     \caption{Multi-horizon predictions across sensors and models.}
     \label{fig:multi_horizon}
 \end{figure}
+\end{landscape}
 
 Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a function of prediction horizon. A clear pattern of non-monotonic MAE growth is observed across all channels: MAE does not increase uniformly with horizon but instead exhibits local peaks at steps 4--6, followed by partial recovery at longer horizons. This non-monotonic pattern reflects the semi-periodic nature of the sensor dynamics, where the model's autoregressive predictions re-synchronise with the actual trajectory as it returns to its mean. T-GCN consistently achieves the lowest MAE at almost every horizon step across all four channels, with the margin over the LSTM baseline widening at the critical medium-range horizons (steps 5--8) that are most operationally relevant for predictive maintenance scheduling.
 

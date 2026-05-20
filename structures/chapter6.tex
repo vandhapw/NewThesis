@@ -516,22 +516,23 @@ Table~\ref{tab:ibm_hw} summarises the QAOA scaling study executed on the IBM Her
 
 The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
-\begin{table}[!htbp]
+\begin{landscape}
+\begin{table}[ht]
 \centering
 \caption{IBM Quantum hardware scaling versus fleet size $N$.}
 \label{tab:ibm_hw}
 \small
-\renewcommand{\arraystretch}{1.05}
+\renewcommand{\arraystretch}{1.2}
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\textwidth}{
->{\centering\arraybackslash}m{0.6cm}
+\begin{tabular}{
 >{\centering\arraybackslash}m{1.0cm}
->{\centering\arraybackslash}m{1.8cm}
->{\centering\arraybackslash}m{1.4cm}
->{\centering\arraybackslash}m{1.6cm}
->{\centering\arraybackslash}m{1.7cm}
->{\centering\arraybackslash}m{1.4cm}
->{\centering\arraybackslash}X
+>{\centering\arraybackslash}m{1.3cm}
+>{\centering\arraybackslash}m{1.9cm}
+>{\centering\arraybackslash}m{1.5cm}
+>{\centering\arraybackslash}m{1.5cm}
+>{\centering\arraybackslash}m{2.1cm}
+>{\centering\arraybackslash}m{4.4cm}
+>{\centering\arraybackslash}m{4.0cm}
 }
 \toprule
 \textbf{N} & \textbf{Qubits} & \textbf{Depth (transpiled)} & \textbf{CZ gates} & \textbf{SX gates} & \textbf{Feasibility rate} & \textbf{Best quantum cost} & \textbf{MILP cost} \\
@@ -546,8 +547,9 @@ The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm
 25 & 100 & $\sim$38{,}000 & $\sim$22{,}000 & --- & $\sim 0\%$     & pure noise         & 2{,}500.00 \\
 30 & 120 & $\sim$55{,}000 & $\sim$33{,}000 & --- & $\sim 0\%$     & pure noise         & 3{,}000.00 \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \end{table}
+\end{landscape}
 \FloatBarrier
 
 The remaining rows $N=5$--$30$ are simulator-projected estimates from the noise-scaling model below; their measured replication is left to follow-up work because the hardware queue and per-instance shot budget grow rapidly beyond $N=4$. The noise analysis reveals exponential fidelity decay with circuit depth:
@@ -726,14 +728,14 @@ The $N=5$ column of Table~\ref{tab:cs_n45} carries the chapter's most informativ
 
 Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\ref{tab:ext_str} runs the full solver suite on fresh streaming instances at $N\in\{7,9,10\}$ under (C1)--(C4): MILP reports infeasibility, and QIEA/SA/GA/TS return violation-laden best-efforts whose violation counts grow with the number of CRITICAL machines contending for the $\rho=1$-slot horizon at capacity $C=3$.
 
-\begin{table}[!htbp]
+\begin{landscape}
+\begin{table}[ht]
 \centering
 \caption{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
 \label{tab:ext_str}
 \small
 \renewcommand{\arraystretch}{1.05}
-\setlength{\tabcolsep}{4pt}
-\resizebox{\textwidth}{!}{%
+\setlength{\tabcolsep}{8pt}
 \begin{tabular}{l r c c r r c c r r c c r}
 \toprule
 \multirow{2}{*}{\textbf{Solver}}
@@ -752,8 +754,9 @@ GA            &  4{,}295.42 & no & 8   & 669  & 5{,}941.48 & no & 10  & 708   & 
 TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 8{,}448.16 & no & 11  & 225 \\
 \textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
 \bottomrule
-\end{tabular}}
+\end{tabular}
 \end{table}
+\end{landscape}
 \FloatBarrier
 
 The QAOA-XY hardware row at $N=7$ is the second measured datum (after $N=5$ in Table~\ref{tab:cs_n45}): with $V=2$ violations and cost $3{,}069.07$, it beats every classical heuristic ($V=8$, cost $\geq 4{,}295.42$) by $36\%$ in cost while halving the violation count.
