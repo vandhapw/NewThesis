@@ -560,11 +560,25 @@ Figure~\ref{fig:model_performance} summarises forecasting performance across fou
     \label{fig:model_performance}
 \end{figure}
 
-Figure~\ref{fig:multi_horizon} presents a $4 \times 3$ panel grid showing the autoregressive rollout prediction performance across 10 forecast horizon steps for four sensor channels (temperature, vibration, humidity, pressure) and all three models. The T-GCN uncertainty bands (gold shading) are generally narrower than those of the OptimizedLSTM (blue shading) for the humidity and pressure channels, indicating more consistent multi-step predictions across different starting windows.
+Figure~\ref{fig:multi_horizon} shows the autoregressive rollout prediction performance across 10 forecast horizon steps for four sensor channels (temperature, vibration, humidity, pressure), with one panel per model: OptimizedLSTM~(\subref{fig:multi_horizon_a}), T-GCN~(\subref{fig:multi_horizon_b}), and Hybrid LSTM-GCN~(\subref{fig:multi_horizon_c}). The T-GCN uncertainty bands (gold shading) are generally narrower than those of the OptimizedLSTM (blue shading) for the humidity and pressure channels, indicating more consistent multi-step predictions across different starting windows.
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/images/multi-horizon-per-model-feature.png}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/multi_horizon_a.png}
+        \caption{OptimizedLSTM.}
+        \label{fig:multi_horizon_a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/multi_horizon_b.png}
+        \caption{T-GCN (CC-Adj).}
+        \label{fig:multi_horizon_b}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/multi_horizon_c.png}
+        \caption{Hybrid LSTM-GCN.}
+        \label{fig:multi_horizon_c}
+    \end{subfigure}
     \caption{Multi-horizon predictions across sensors and models.}
     \label{fig:multi_horizon}
 \end{figure}
@@ -573,7 +587,28 @@ Figure~\ref{fig:mae_degradation} quantifies forecast error accumulation as a fun
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=\textwidth]{figures/images/horizon-mae-degradation-curve.png}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/horizon_mae_a.png}
+        \caption{Temperature.}
+        \label{fig:mae_degradation_a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/horizon_mae_b.png}
+        \caption{Vibration.}
+        \label{fig:mae_degradation_b}
+    \end{subfigure}
+
+    \vspace{0.7em}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/horizon_mae_c.png}
+        \caption{Humidity.}
+        \label{fig:mae_degradation_c}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/horizon_mae_d.png}
+        \caption{Pressure.}
+        \label{fig:mae_degradation_d}
+    \end{subfigure}
     \caption{Horizon MAE degradation over 10 forecast steps.}
     \label{fig:mae_degradation}
 \end{figure}

@@ -400,13 +400,64 @@ The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (
 \end{algorithm}
 
 Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
-Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 machines, T = 4 time options), showing the initial X-gate preparation, alternating problem unitary (RZ/RZZ) and XY ring mixer layers, and final measurement. Each machine's qubits form an independent block within the mixer, preserving one-hot feasibility.
+Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction.
 
 \begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1\textwidth]{figures/images/fig7_qaoa_circuit.png}
-    \caption{QAOA circuit for minimal scheduling instance ($N=2$, $T=4$).}
-    \label{fig:qaoa-circuit}
+\centering
+\resizebox{0.97\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  wire/.style={thick},
+  xg/.style={draw,thick,fill=green!22,minimum width=0.6cm,minimum height=0.54cm,inner sep=1pt},
+  rz/.style={draw,thick,fill=blue!14,minimum width=0.72cm,minimum height=0.54cm,inner sep=1pt},
+  xyb/.style={draw,thick,fill=red!14,minimum width=0.64cm,minimum height=1.0cm,inner sep=1pt},
+  mg/.style={draw,thick,fill=yellow!32,minimum width=0.6cm,minimum height=0.54cm,inner sep=1pt},
+  ctrl/.style={circle,fill=black,minimum size=4.5pt,inner sep=0pt},
+  slbl/.style={font=\footnotesize\bfseries,align=center}
+]
+% --- machine-block backgrounds ---
+\fill[purple!5,rounded corners] (3.5,2.16) rectangle (8.5,4.66);
+\fill[cyan!6,rounded corners]  (3.5,-0.32) rectangle (8.5,2.10);
+\draw[dashed,thick,purple!55,rounded corners] (3.5,2.16) rectangle (8.5,4.66);
+\draw[dashed,thick,cyan!65,rounded corners]   (3.5,-0.32) rectangle (8.5,2.10);
+\node[font=\scriptsize\bfseries,purple!55,rotate=-90] at (8.72,3.41) {Machine 1 block};
+\node[font=\scriptsize\bfseries,cyan!65,rotate=-90]   at (8.72,0.89) {Machine 2 block};
+% --- wires + qubit labels ---
+\foreach \i/\y/\m/\t in {0/4.34/1/0,1/3.72/1/1,2/3.10/1/2,3/2.48/1/3,4/1.86/2/0,5/1.24/2/1,6/0.62/2/2,7/0.00/2/3}{
+  \draw[wire] (3.5,\y) -- (8.5,\y);
+  \node[left,font=\scriptsize] at (3.45,\y) {$q_{\i}\,(M_{\m},t_{\t})$};
+}
+% --- X initialisation on the t0 qubit of each machine ---
+\node[xg] at (3.95,4.34) {$X$};
+\node[xg] at (3.95,1.86) {$X$};
+% --- R_Z single-qubit rotations (U_C) ---
+\foreach \y in {4.34,3.72,3.10,2.48,1.86,1.24,0.62,0.00}{ \node[rz] at (4.70,\y) {$R_Z$}; }
+% --- intra-block ZZ couplings (one-hot penalty) ---
+\foreach \ya/\yb in {4.34/3.72, 3.10/2.48, 1.86/1.24, 0.62/0.00}{
+  \draw[thick] (5.35,\ya) -- (5.35,\yb);
+  \node[ctrl] at (5.35,\ya){}; \node[ctrl] at (5.35,\yb){};
+}
+% --- inter-block ZZ coupling (capacity constraint) ---
+\draw[thick] (5.72,3.72) -- (5.72,1.24);
+\node[ctrl] at (5.72,3.72){}; \node[ctrl] at (5.72,1.24){};
+% --- XY ring mixer, staggered columns ---
+\foreach \yc in {4.03,2.79,1.55,0.31}{ \node[xyb] at (6.30,\yc) {XY}; }
+\foreach \yc in {3.41,0.93}{ \node[xyb] at (6.95,\yc) {XY}; }
+% --- repeat indicator ---
+\node[font=\large] at (7.45,3.41) {$\cdots$};
+\node[font=\large] at (7.45,0.93) {$\cdots$};
+% --- measurement ---
+\foreach \y in {4.34,3.72,3.10,2.48,1.86,1.24,0.62,0.00}{ \node[mg] at (8.10,\y) {$M$}; }
+% --- stage labels ---
+\node[slbl] at (3.95,5.02) {Init};
+\node[slbl] at (5.05,5.02) {$U_C(\gamma_\ell)$};
+\node[slbl] at (6.62,5.02) {$U_M(\beta_\ell)$};
+\node[slbl] at (8.10,5.02) {Measure};
+\node[font=\footnotesize] at (6.0,-0.78) {Repeat the $U_C(\gamma_\ell)\,U_M(\beta_\ell)$ block for $\ell = 1,\ldots,p$ layers};
+\end{tikzpicture}%
+}
+\caption{QAOA circuit for a minimal scheduling instance ($N=2$, $T=4$).}
+\label{fig:qaoa-circuit}
 \end{figure}
 
 \section{Classical Simulation (State Vector)}
@@ -509,7 +560,16 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig5_noise_frontier.png}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/noise_frontier_a.png}
+        \caption{Circuit complexity.}
+        \label{fig:noise-frontier-a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/noise_frontier_b.png}
+        \caption{Noise-scaling frontier.}
+        \label{fig:noise-frontier-b}
+    \end{subfigure}
     \caption{IBM Quantum hardware scaling: complexity vs. fleet size.}
     \label{fig:noise-frontier}
 \end{figure}
@@ -556,7 +616,16 @@ Streaming reveals three critical departures from synthetic benchmarks. \textbf{H
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig9_streaming_vs_synthetic.png}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/streaming_synth_a.png}
+        \caption{Solution cost: streaming vs.\ synthetic.}
+        \label{fig:streaming-vs-synthetic-a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/streaming_synth_b.png}
+        \caption{Streaming-derived machine states.}
+        \label{fig:streaming-vs-synthetic-b}
+    \end{subfigure}
     \caption{Real-time vs. synthetic benchmark costs across fleet sizes.}
     \label{fig:streaming-vs-synthetic}
 \end{figure}
