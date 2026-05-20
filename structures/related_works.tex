@@ -165,13 +165,64 @@ In QASAMAP, entanglement is exploited operationally rather than metaphorically: 
 
 \subsection{Variational Quantum Circuits}
 
-Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits (PQC), form the algorithmic backbone of near-term quantum machine learning in the NISQ era. A VQC consists of three layers: an encoding layer that maps classical data into quantum states, a variational layer of parameterised unitary operations, and a measurement layer that extracts classical expectations from the resulting quantum state.
+Variational Quantum Circuits (VQC), also known as Parameterised Quantum Circuits (PQC), form the algorithmic backbone of near-term quantum machine learning in the NISQ era. As shown in Figure~\ref{fig:vqe_illustration}, a VQC consists of three stages: an encoding stage that maps classical data into quantum states, a variational stage of parameterised unitary operations, and a measurement stage that extracts classical expectations, all driven by a classical optimiser in a closed hybrid loop.
 \begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1\textwidth]{figures/images/vqe_illustration.png}
-    \caption{High-level illustration of a Variational Quantum Algorithm (VQE). Image from Wikimedia Commons (CC0).}
-    \label{fig:vqe_illustration}
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  wire/.style={thick},
+  gate/.style={draw,thick,fill=white,minimum width=1.05cm,minimum height=0.74cm,inner sep=1pt},
+  ctrl/.style={circle,fill=black,minimum size=5pt,inner sep=0pt},
+  box/.style={draw,thick,rounded corners,align=center},
+  stage/.style={font=\footnotesize\bfseries,align=center}
+]
+% --- qubit wires ---
+\foreach \y in {0,1,2}{\draw[wire] (0.15,\y) -- (12.55,\y);}
+\node[left] at (0.15,2) {$|0\rangle$};
+\node[left] at (0.15,1) {$|0\rangle$};
+\node[left] at (0.15,0) {$|0\rangle$};
+% ===== Stage 1: Encoding =====
+\fill[blue!7,rounded corners] (0.65,-0.7) rectangle (3.95,2.7);
+\node[stage] at (2.30,3.18) {Stage 1\\ Encoding};
+\node[gate] at (1.35,2){$H$}; \node[gate] at (1.35,1){$H$}; \node[gate] at (1.35,0){$H$};
+\node[gate] at (2.95,2){$R_Z(x_1)$}; \node[gate] at (2.95,1){$R_Z(x_2)$}; \node[gate] at (2.95,0){$R_Z(x_3)$};
+% ===== Stage 2: Variational ansatz =====
+\fill[orange!11,rounded corners] (4.25,-0.7) rectangle (9.55,2.7);
+\node[stage] at (6.90,3.18) {Stage 2\\ Variational Ansatz ($\times\,L$ layers)};
+\node[gate] at (5.10,2){$R_Y(\theta_1)$}; \node[gate] at (5.10,1){$R_Y(\theta_2)$}; \node[gate] at (5.10,0){$R_Y(\theta_3)$};
+% CNOT q0 -> q1
+\node[ctrl] at (6.45,2){}; \draw[thick] (6.45,2)--(6.45,1);
+\draw[thick] (6.45,1) circle (0.22); \draw[thick] (6.23,1)--(6.67,1); \draw[thick] (6.45,0.78)--(6.45,1.22);
+% CNOT q1 -> q2
+\node[ctrl] at (7.20,1){}; \draw[thick] (7.20,1)--(7.20,0);
+\draw[thick] (7.20,0) circle (0.22); \draw[thick] (6.98,0)--(7.42,0); \draw[thick] (7.20,-0.22)--(7.20,0.22);
+\node[gate] at (8.55,2){$R_Y(\theta_4)$}; \node[gate] at (8.55,1){$R_Y(\theta_5)$}; \node[gate] at (8.55,0){$R_Y(\theta_6)$};
+% ===== Stage 3: Measurement =====
+\fill[green!9,rounded corners] (9.85,-0.7) rectangle (11.6,2.7);
+\node[stage] at (10.72,3.18) {Stage 3\\ Measurement};
+\foreach \y in {0,1,2}{
+  \node[gate] at (10.72,\y){};
+  \draw[thick] (10.50,\y-0.12) arc (200:-20:0.235);
+  \draw[thick,->] (10.72,\y-0.12)--(10.90,\y+0.16);
+}
+% --- Cost box ---
+\node[box,fill=yellow!16,minimum width=2.0cm,minimum height=1.45cm] (cost) at (12.65,1)
+  {Cost\\[1pt]$C(\boldsymbol{\theta})$\\[1pt]$=\langle\psi|H_P|\psi\rangle$};
+\draw[thick,->] (11.6,1)--(cost.west);
+% --- Classical optimizer + feedback loop ---
+\node[box,fill=red!9,minimum width=6.6cm,minimum height=1.2cm] (opt) at (6.6,-2.35)
+  {\textbf{Classical Optimizer} (COBYLA / SPSA / Adam)\\[-1pt]
+   \footnotesize update $\boldsymbol{\theta}$ via the parameter-shift rule};
+\draw[thick,->] (cost.south) |- (opt.east);
+\draw[thick,->] (opt.north -| 6.6,-1.75) -- (6.6,-0.7)
+   node[midway,right,font=\footnotesize] {update $\boldsymbol{\theta}$};
+\end{tikzpicture}%
+}
+\caption{Three-stage architecture of a variational quantum circuit.}
+\label{fig:vqe_illustration}
 \end{figure}
+The three stages of Figure~\ref{fig:vqe_illustration} operate as a hybrid quantum--classical loop. In the encoding stage, Hadamard gates create an equal superposition and data-dependent $R_Z$ rotations imprint the classical feature vector $\mathbf{x}$ into the relative phases of the quantum state. In the variational stage, $L$ repeated layers of parameterised $R_Y$ rotations interleaved with a CNOT entangling ladder explore the solution space, with the trainable parameters $\boldsymbol{\theta}$ jointly tuned by the classical optimiser. In the measurement stage, repeated shots estimate the expectation value of the problem Hamiltonian $H_P$, which serves as the scalar cost $C(\boldsymbol{\theta})$ minimised by the optimiser. The feedback arrow closes the loop: gradients obtained through the parameter-shift rule update $\boldsymbol{\theta}$ until the cost converges.
 The operation of a generic VQC can be formalised in three stages. \textbf{Stage 1 --- Encoding.} A classical input vector $\mathbf{x} \in \mathbb{R}^d$ is mapped into an $n$-qubit quantum state $|\psi(\mathbf{x})\rangle$ via a data-dependent unitary $U_E(\mathbf{x})$. The most common encoding is angle encoding, where each feature $x_i$ is mapped to a single-qubit rotation angle:
 \begin{equation}
     U_E(\mathbf{x}) = \bigotimes_{i=1}^{n} R_Z(x_i) \cdot H^{\otimes n}

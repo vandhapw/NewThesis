@@ -151,3 +151,20 @@
     frame=single,
     breaklines=true
 }
+
+% JSON is not a built-in listings language; define it so
+% \begin{lstlisting}[language=json] compiles.
+\lstdefinelanguage{json}{
+    morestring=[b]",
+    stringstyle=\color{green!50!black},
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{gray},
+    literate=
+      *{:}{{{\color{blue}:}}}{1}
+       {,}{{{\color{blue},}}}{1}
+       {\{}{{{\color{black}\{}}}{1}
+       {\}}{{{\color{black}\}}}}{1}
+       {[}{{{\color{black}[}}}{1}
+       {]}{{{\color{black}]}}}{1},
+}

@@ -29,7 +29,7 @@ agent pipeline concurrently, ensuring continuous data ingestion regardless of LL
 The multi-agent orchestrator coordinates nine specialized agents through a four-phase execution pipeline. Each phase has explicit data dependencies that determine execution order, while agents within the same phase execute concurrently via thread pools. This section details the agent responsibilities, inter-agent communication protocol, and the phased execution semantics. The nine agents are organized into four functional categories based on their role in the cognitive pipeline as shown in the Table \ref{tab:agent_tx}.
 \begin{table}[!htbp]
 \centering
-\caption{Agent taxonomy showing phase assignment, responsibilities, and LLM model routing.}
+\caption{Agent taxonomy: phase, responsibilities, and LLM routing.}
 \label{tab:agent_tx}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -250,7 +250,7 @@ The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot du
 
 \begin{table}[!htbp]
 \centering
-\caption{Multi-agent pipeline cognitive output on 50 streamed machines (5 windows $\times$ 10 readings each).}
+\caption{Multi-agent cognitive output on 50 streamed machines.}
 \label{tab:str50}
 \small
 \renewcommand{\arraystretch}{1.05}

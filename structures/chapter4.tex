@@ -3,8 +3,7 @@ The digital twin framework developed in this research requires a continuous, low
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1\textwidth]{figures/images/DT sensors.png}
-    \caption{Three-tier system architecture for real-time data ingestion,
-           spatio-temporal modelling, and state classification.}
+    \caption{Three-tier data ingestion and modelling architecture.}
     \label{fig:dt-sensors}
 \end{figure}
 The architecture is containerized using Docker and deployed on an Ubuntu 22.04 LTS operating system. Service orchestration utilities Docker Compose with a dedicated Kafka network, enabling inter-service communication without exposing internal ports. Each container is single-responsibility: the Plalion Kafka bridge exclusively handles device-to-broker relay, the consumer persists raw data into MongoDB, and the digital twin container encapsulates the entire modeling pipeline—from sensor alignment through fleet propagation and classification. This design supports modular scaling, fault isolation, and atomic deployment of model updates without disrupting the ingestion layer.
@@ -133,6 +132,8 @@ fetched\_at    & datetime & Bridge fetch timestamp   & ISO   & "2026-05-05T..." 
 \end{tabularx}
 \end{table}
 A dedicated consumer container subscribes to and persists each message into the MongoDB collection within the database. This collection serves as the canonical data source for the digital twin engine. MongoDB was selected over a relational store because (a) the JSON-nature of sensor payloads maps directly to BSON documents, eliminating impedance mismatch; (b) the schema is semi-structured and evolves with device firmware updates; and (c) MongoDB's TTL indexes and capped collections provide built-in mechanisms for data lifecycle management in streaming contexts.
+
+The ingestion design reuses a sensing pattern validated in an earlier smart-lighting study~\cite{widartha_smart_lighting_2024}, in which a low-cost sensing device and a third-party REST API were polled to drive a real-time monitoring prototype. That study established that a lightweight poll-and-relay loop is sufficient for continuous environmental data acquisition and actionable real-time insight. The Kafka bridge of Algorithm~\ref{alg:plalion_kafka} generalises the same poll-and-relay pattern into a durable, partitioned message stream suitable for fleet-scale digital-twin ingestion, adding broker acknowledgement and replayable persistence that a direct-to-application prototype lacks.
 
 \section{Spatio-Temporal Modelling with Temporal Graph Convolutional Networks}
 The T-GCN model bridges two complementary neural paradigms: Graph Convolutional Networks (GCNs) for modelling spatial dependencies and Gated Recurrent Units (GRUs) for capturing temporal dynamics. In a manufacturing context, the spatial dimension arises from the physical and operational coupling between machines—adjacent machines on a production line exhibit correlated thermal signatures, vibration propagation through shared flooring, and synchronized power draws. The temporal dimension captures the evolution of these feature trajectories over time, including trend emergence, seasonal patterns aligned with shift schedules, and transient responses to anomalous events.
@@ -428,6 +429,8 @@ where $\mathcal{S}^{-1}(\cdot)$ denotes the inverse transformation of the standa
 
 This differencing formulation enables the model to predict \emph{incremental changes} rather than absolute values, thereby improving numerical stability and inducing stationarity in the time series. Such transformation is widely adopted in time-series forecasting literature \cite{hyndman2018forecasting}.
 
+This residual-oriented target also aligns the T-GCN with the prediction-error anomaly-detection paradigm of the HIPER-CHAD model~\cite{widartha_hiper_chad_2025}. HIPER-CHAD couples an LSTM forecaster with a variational autoencoder trained on the forecaster's residual error vectors, scoring anomalies through the combination of reconstruction error and Kullback--Leibler divergence; on a real-world multivariate environmental dataset it attains an F1-score of $0.857$ with perfect recall, and a sensitivity analysis identifies a 20-timestep window as optimal ($\mathrm{F1} = 0.884$). The $T = 10$ window adopted here (Table~\ref{tab:tgcn_hyp}) lies within the same short-horizon regime, and the differenced prediction target is precisely the residual error signal such a downstream prediction-error detector consumes, confirming that the forecasting layer of QASAMAP is constructed to feed a residual-based anomaly stage rather than as a stand-alone regressor.
+
 \section{Forecasting Results and Evaluation}
 
 The forecasting performance of the proposed T-GCN with cross-correlation adjacency (CC-Adj) is evaluated against two baselines: a standalone Optimized LSTM and a Hybrid LSTM-GCN. All models were trained and evaluated on the 100,000-observation dataset partitioned into 80/20 per-machine train/test splits. Training was performed on an NVIDIA A100-SXM4-80GB GPU.
@@ -438,7 +441,7 @@ The per-feature forecasting results across the five sensor channels and all thre
 
 \begin{table}[!htbp]
 \centering
-\caption{Per-Feature Forecasting Results: MSE, RMSE, MAE, and $R^2$ for Each Model and Sensor}
+\caption{Per-feature forecasting results for each model and sensor.}
 \label{tab:fcst_res}
 \small
 \renewcommand{\arraystretch}{1.05}
