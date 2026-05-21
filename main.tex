@@ -6,6 +6,9 @@
 % --- Document Start ---
 \begin{document}
 
+% --- Page style: empty header (0 mm), page number centred in footer ---
+\pagestyle{plain}
+
 % --- Front Matter: Roman numeral page numbering ---
 \pagenumbering{roman}
 
@@ -13,12 +16,14 @@
 \thispagestyle{empty}
 \input{structures/title}
 
-% --- Approval Page ---
+% --- Approval Page (examining committee -- no page number) ---
 \newpage
+\thispagestyle{empty}
 \input{structures/approval_form}
 
-% --- Table of Contents ---
+% --- Table of Contents (Roman numbering starts here at i) ---
 \newpage
+\setcounter{page}{1}
 \input{structures/table_of_content}
 
 % --- List of Tables and Figures ---

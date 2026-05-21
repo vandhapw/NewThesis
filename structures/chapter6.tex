@@ -291,63 +291,91 @@ The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (
 The full hardware execution pipeline is given in Algorithm~\ref{alg:qaoa_hardware} (Appendix~\ref{app:algorithms}).
 
 Algorithm~\ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter-transfer strategy optimizes the angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters --- that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
-Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction.
+Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction. The measured cost expectation $\langle H_C\rangle$ drives a classical COBYLA optimiser with multiple restarts, which updates the variational angles $(\gamma_\ell,\beta_\ell)$ and closes the hybrid quantum--classical loop.
 
 \begin{figure}[!htbp]
 \centering
-\resizebox{0.97\textwidth}{!}{%
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
   font=\small,
   wire/.style={thick},
-  xg/.style={draw,thick,fill=green!22,minimum width=0.6cm,minimum height=0.54cm,inner sep=1pt},
-  rz/.style={draw,thick,fill=blue!14,minimum width=0.72cm,minimum height=0.54cm,inner sep=1pt},
-  xyb/.style={draw,thick,fill=red!14,minimum width=0.64cm,minimum height=1.0cm,inner sep=1pt},
-  mg/.style={draw,thick,fill=yellow!32,minimum width=0.6cm,minimum height=0.54cm,inner sep=1pt},
-  ctrl/.style={circle,fill=black,minimum size=4.5pt,inner sep=0pt},
-  slbl/.style={font=\footnotesize\bfseries,align=center}
+  xg/.style={draw,thick,fill=pallight!55,minimum width=0.62cm,minimum height=0.56cm,inner sep=1pt},
+  rzg/.style={draw,thick,fill=palmed!22,minimum width=0.80cm,minimum height=0.56cm,inner sep=1pt},
+  xyg/.style={draw,thick,fill=paldark!15,minimum width=0.80cm,inner sep=1pt},
+  mg/.style={draw,thick,fill=pallight!85,minimum width=0.62cm,minimum height=0.58cm,inner sep=1pt},
+  zd/.style={circle,fill=paldark,minimum size=5pt,inner sep=0pt},
+  zo/.style={circle,fill=palmed,minimum size=5pt,inner sep=0pt},
+  barr/.style={dashed,gray!60,thick},
+  stg/.style={font=\footnotesize\bfseries,align=center},
+  box/.style={draw,thick,rounded corners,align=center}
 ]
-% --- machine-block backgrounds ---
-\fill[purple!5,rounded corners] (3.5,2.16) rectangle (8.5,4.66);
-\fill[cyan!6,rounded corners]  (3.5,-0.32) rectangle (8.5,2.10);
-\draw[dashed,thick,purple!55,rounded corners] (3.5,2.16) rectangle (8.5,4.66);
-\draw[dashed,thick,cyan!65,rounded corners]   (3.5,-0.32) rectangle (8.5,2.10);
-\node[font=\scriptsize\bfseries,purple!55,rotate=-90] at (8.72,3.41) {Machine 1 block};
-\node[font=\scriptsize\bfseries,cyan!65,rotate=-90]   at (8.72,0.89) {Machine 2 block};
-% --- wires + qubit labels ---
-\foreach \i/\y/\m/\t in {0/4.34/1/0,1/3.72/1/1,2/3.10/1/2,3/2.48/1/3,4/1.86/2/0,5/1.24/2/1,6/0.62/2/2,7/0.00/2/3}{
-  \draw[wire] (3.5,\y) -- (8.5,\y);
-  \node[left,font=\scriptsize] at (3.45,\y) {$q_{\i}\,(M_{\m},t_{\t})$};
+% ===== machine-block backgrounds (one-hot encoding: T qubits per machine) =====
+\fill[pallight!22,rounded corners] (0.55,3.55) rectangle (9.20,7.45);
+\fill[palmed!15,rounded corners]   (0.55,-0.45) rectangle (9.20,3.45);
+\node[font=\scriptsize\bfseries,paldark,rotate=90]        at (-1.95,5.5) {Machine 1 block};
+\node[font=\scriptsize\bfseries,palmed!85!black,rotate=90] at (-1.95,1.5) {Machine 2 block};
+% ===== qubit wires + labels =====
+\foreach \i/\y/\m/\t in {0/7/1/0,1/6/1/1,2/5/1/2,3/4/1/3,4/3/2/0,5/2/2/1,6/1/2/2,7/0/2/3}{
+  \draw[wire] (0.55,\y) -- (10.05,\y);
+  \node[left,font=\scriptsize] at (0.48,\y) {$q_{\i}\;(M_{\m},t_{\t})$};
 }
-% --- X initialisation on the t0 qubit of each machine ---
-\node[xg] at (3.95,4.34) {$X$};
-\node[xg] at (3.95,1.86) {$X$};
-% --- R_Z single-qubit rotations (U_C) ---
-\foreach \y in {4.34,3.72,3.10,2.48,1.86,1.24,0.62,0.00}{ \node[rz] at (4.70,\y) {$R_Z$}; }
-% --- intra-block ZZ couplings (one-hot penalty) ---
-\foreach \ya/\yb in {4.34/3.72, 3.10/2.48, 1.86/1.24, 0.62/0.00}{
-  \draw[thick] (5.35,\ya) -- (5.35,\yb);
-  \node[ctrl] at (5.35,\ya){}; \node[ctrl] at (5.35,\yb){};
+% ===== Init: X on the t0 qubit of each block -> one-hot feasible start =====
+\node[xg] at (1.05,7) {$X$};
+\node[xg] at (1.05,3) {$X$};
+\draw[barr] (1.55,-0.5) -- (1.55,7.5);
+% ===== U_C: single-qubit R_Z(gamma) =====
+\foreach \y in {7,6,5,4,3,2,1,0}{ \node[rzg] at (2.30,\y) {$R_Z$}; }
+% ===== U_C: intra-block ZZ couplings (one-hot penalty, every slot pair) =====
+\foreach \x/\ya/\yb in {2.95/7/6,3.40/5/4,3.85/6/5,4.30/7/5,4.75/6/4,5.20/7/4,%
+                        2.95/3/2,3.40/1/0,3.85/2/1,4.30/3/1,4.75/2/0,5.20/3/0}{
+  \draw[thick,paldark] (\x,\ya) -- (\x,\yb);
+  \node[zd] at (\x,\ya){}; \node[zd] at (\x,\yb){};
 }
-% --- inter-block ZZ coupling (capacity constraint) ---
-\draw[thick] (5.72,3.72) -- (5.72,1.24);
-\node[ctrl] at (5.72,3.72){}; \node[ctrl] at (5.72,1.24){};
-% --- XY ring mixer, staggered columns ---
-\foreach \yc in {4.03,2.79,1.55,0.31}{ \node[xyb] at (6.30,\yc) {XY}; }
-\foreach \yc in {3.41,0.93}{ \node[xyb] at (6.95,\yc) {XY}; }
-% --- repeat indicator ---
-\node[font=\large] at (7.45,3.41) {$\cdots$};
-\node[font=\large] at (7.45,0.93) {$\cdots$};
-% --- measurement ---
-\foreach \y in {4.34,3.72,3.10,2.48,1.86,1.24,0.62,0.00}{ \node[mg] at (8.10,\y) {$M$}; }
-% --- stage labels ---
-\node[slbl] at (3.95,5.02) {Init};
-\node[slbl] at (5.05,5.02) {$U_C(\gamma_\ell)$};
-\node[slbl] at (6.62,5.02) {$U_M(\beta_\ell)$};
-\node[slbl] at (8.10,5.02) {Measure};
-\node[font=\footnotesize] at (6.0,-0.78) {Repeat the $U_C(\gamma_\ell)\,U_M(\beta_\ell)$ block for $\ell = 1,\ldots,p$ layers};
+% ===== U_C: inter-block ZZ (machines competing for a shared time slot) =====
+\foreach \ya/\yb in {7/3,6/2}{
+  \draw[thick,palmed] (5.75,\ya) -- (5.75,\yb);
+  \node[zo] at (5.75,\ya){}; \node[zo] at (5.75,\yb){};
+}
+% ===== U_M: XY ring mixer -- adjacent slot pairs =====
+\foreach \yc in {6.5,4.5,2.5,0.5}{ \node[xyg,minimum height=1.16cm] at (6.55,\yc) {XY}; }
+\foreach \yc in {5.5,1.5}{ \node[xyg,minimum height=1.16cm] at (7.45,\yc) {XY}; }
+% ===== U_M: XY ring closure (wrap-around q3-q0 and q7-q4) =====
+\foreach \ya/\yb in {7/4,3/0}{
+  \draw[thick,paldark] (8.45,\ya) -- (8.45,\yb);
+  \node[xyg,minimum height=0.56cm] at (8.45,\ya) {XY};
+  \node[xyg,minimum height=0.56cm] at (8.45,\yb) {XY};
+}
+\draw[barr] (9.15,-0.5) -- (9.15,7.5);
+% ===== Measurement =====
+\foreach \y in {7,6,5,4,3,2,1,0}{
+  \node[mg] at (9.70,\y) {};
+  \draw[thick] (9.55,\y-0.10) arc (200:-20:0.155);
+  \draw[thick,->] (9.70,\y-0.10) -- (9.83,\y+0.13);
+}
+% ===== classical register =====
+\draw[thick,double,double distance=1.3pt] (9.70,0) -- (9.70,-1.35) -- (10.70,-1.35);
+\draw[thick] (9.60,-0.80) -- (9.80,-0.62);
+\node[font=\scriptsize] at (9.97,-0.74) {$8$};
+\node[right,font=\scriptsize] at (10.72,-1.35) {classical register $c$};
+% ===== stage labels =====
+\node[stg] at (1.05,7.95) {Init};
+\node[stg] at (3.95,7.95) {$U_C(\gamma_\ell)$};
+\node[stg] at (7.50,7.95) {$U_M(\beta_\ell)$};
+\node[stg] at (9.70,7.95) {Measure};
+% ===== one-layer span + repeat indicator =====
+\draw[thick] (1.95,-0.95) -- (1.95,-1.18) -- (9.05,-1.18) -- (9.05,-0.95);
+\node[font=\footnotesize] at (5.5,-1.52)
+  {one QAOA layer $U_M(\beta_\ell)\,U_C(\gamma_\ell)$ --- repeated for $\ell = 1,\dots,p$};
+% ===== classical optimiser: the hybrid quantum--classical loop =====
+\node[box,fill=paldark!10,minimum width=8.6cm,minimum height=1.0cm] (opt) at (4.85,-2.95)
+  {\textbf{Classical optimiser} --- COBYLA with multiple restarts: minimise $\langle H_C\rangle$};
+\draw[thick,->] (10.70,-1.35) |- (opt.east)
+  node[pos=0.30,right=1pt,font=\scriptsize] {measured $\langle H_C\rangle$};
+\draw[thick,->] (opt.north -| 2.30,0) -- (2.30,-0.55)
+  node[pos=0.20,right=1pt,font=\scriptsize] {updated $(\gamma_\ell,\beta_\ell)$};
 \end{tikzpicture}%
 }
-\caption{QAOA circuit for a minimal scheduling instance ($N=2$, $T=4$).}
+\caption{QAOA circuit with XY ring mixer for a minimal scheduling instance ($N=2$, $T=4$); dark and mid-tone dots mark intra- and inter-block $ZZ$ couplings.}
 \label{fig:qaoa-circuit}
 \end{figure}
 
@@ -408,14 +436,13 @@ Table~\ref{tab:ibm_hw} summarises the QAOA scaling study executed on the IBM Her
 The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
 \begin{landscape}
-\vspace*{\fill}
-\begin{center}
-\begin{minipage}{\dimexpr\paperheight-90mm\relax}
 \centering
 
+\begin{minipage}{\linewidth}
+\centering
 \captionof{table}{IBM Quantum hardware scaling versus fleet size $N$.}
 \label{tab:ibm_hw}
-{\footnotesize
+{\scriptsize
 \renewcommand{\arraystretch}{1.0}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{
@@ -442,12 +469,15 @@ The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm
 30 & 120 & $\sim$55{,}000 & $\sim$33{,}000 & --- & $\sim 0\%$     & pure noise         & 3{,}000.00 \\
 \bottomrule
 \end{tabular}}
+\end{minipage}
 
-\vspace{2.0em}
+\vspace{1.0em}
 
+\begin{minipage}{\linewidth}
+\centering
 \captionof{table}{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
 \label{tab:ext_str}
-{\footnotesize
+{\scriptsize
 \renewcommand{\arraystretch}{1.0}
 \setlength{\tabcolsep}{8pt}
 \begin{tabular}{l r c c r r c c r r c c r}
@@ -469,10 +499,8 @@ TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 
 \textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}}
-
 \end{minipage}
-\end{center}
-\vspace*{\fill}
+
 \end{landscape}
 \FloatBarrier
 

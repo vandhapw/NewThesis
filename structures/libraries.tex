@@ -1,5 +1,6 @@
 % --- Packages ---
-\usepackage[a4paper,top=52mm,bottom=35mm,left=38mm,right=38mm]{geometry}
+\usepackage[a4paper,top=52mm,bottom=35mm,left=38mm,right=38mm,%
+            headheight=0mm,headsep=0mm,footskip=15mm]{geometry}
 \usepackage{graphicx}
 \usepackage{setspace}
 \usepackage{titlesec}
@@ -16,6 +17,7 @@
 \usepackage{amsfonts}
 \usepackage{tabularx}
 \usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{float}      % for [H]
@@ -75,18 +77,18 @@
   {\thesubsubsection}{1em}{}
 
 % --- Table and Figure Captions ---
-% Table caption ABOVE the table, 10 pt, bold
+% Table caption ABOVE the table, 11 pt, bold (layout rule: judul tabel 11 pt)
 \captionsetup[table]{
   position=above,
-  font={small,bf},
+  font={normalsize,bf},
   labelfont=bf,
   justification=raggedright
 }
 
-% Figure caption BELOW the figure, 10 pt, bold
+% Figure caption BELOW the figure, 11 pt, bold (layout rule: judul gambar 11 pt)
 \captionsetup[figure]{
   position=below,
-  font={small,bf},
+  font={normalsize,bf},
   labelfont=bf,
   justification=centering
 }
@@ -142,6 +144,11 @@
 
 \usepackage{listings}
 \usepackage{xcolor}
+
+% --- shared figure palette (matches Figure 2.5, the multi-agent architecture) ---
+\definecolor{paldark}{RGB}{71,76,82}     % dark slate
+\definecolor{palmed}{RGB}{102,123,132}   % medium blue-gray
+\definecolor{pallight}{RGB}{179,201,233} % light blue
 
 \lstset{
     basicstyle=\ttfamily\small,
