@@ -6,10 +6,37 @@ The proposed system follows a layered architecture comprising four principal tie
 industrial machines; (ii) a windowing and dispatch layer that buffers readings into analysis
 windows of configurable size (default: 10 readings per machine) and dispatches complete windows to background worker threads; (iii) a multi-agent cognitive layer consisting of nine specialized agents coordinated by a phased orchestrator; and (iv) a scheduling layer that formulates the maintenance decision as a constrained binary optimization problem solved via both classical and quantum approaches. The overall system architecture is formalized in the following diagram:
 \begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1\textwidth]{figures/images/multi-agent architecture.png}
-    \caption{Four-tier architecture of the Multi-Agent System for real-time predictive maintenance.}
-    \label{fig:multi-agent-arc}
+\centering
+\begin{tikzpicture}[
+  font=\small, >=Latex,
+  tier/.style={draw=paldark!75, rounded corners=4pt, very thick,
+               align=center, text width=108mm, inner sep=7pt},
+  link/.style={->, very thick, draw=paldark}
+]
+\node[tier, fill=pallight!35] (t1)
+  {\textbf{Tier 1 --- Data Ingestion}\\[2pt]
+   Apache Kafka topic \texttt{machine\_sensor\_data}; per-minute telemetry
+   from 50 machines ($\mathrm{Sensor}_1,\dots,\mathrm{Sensor}_N$)};
+\node[tier, fill=palmed!18, below=5mm of t1] (t2)
+  {\textbf{Tier 2 --- Windowing and Thread Dispatch}\\[2pt]
+   \texttt{SensorDataWindow}: 10-reading buffer per machine;\;
+   \texttt{WorkerThreadPool}: 4 threads, non-blocking};
+\node[tier, fill=pallight!35, below=5mm of t2] (t3)
+  {\textbf{Tier 3 --- Multi-Agent Cognitive Layer}\\[2pt]
+   Phase~1: Monitor $\cdot$ Correlate $\cdot$ Pattern \emph{(parallel)}\\
+   Phase~2: Diagnosis $\rightarrow$ Planning \emph{(sequential)}\\
+   Phase~3: Action $\cdot$ Self-Reflection \emph{(parallel)}\\
+   Phase~4: Explain $\cdot$ Report \emph{(parallel)}};
+\node[tier, fill=palmed!18, below=5mm of t3] (t4)
+  {\textbf{Tier 4 --- Hybrid Scheduling and Optimization}\\[2pt]
+   Classical, quantum-inspired, and QAOA solvers
+   under operational constraints};
+\draw[link] (t1) -- (t2);
+\draw[link] (t2) -- (t3);
+\draw[link] (t3) -- (t4);
+\end{tikzpicture}
+\caption{Four-tier architecture of the Multi-Agent System for real-time predictive maintenance.}
+\label{fig:multi-agent-arc}
 \end{figure}
 \subsection{Design Principles}
 The system design adheres to the following principles, each grounded in established software
@@ -29,7 +56,7 @@ agent pipeline concurrently, ensuring continuous data ingestion regardless of LL
 The multi-agent orchestrator coordinates nine specialized agents through a four-phase execution pipeline. Each phase has explicit data dependencies that determine execution order, while agents within the same phase execute concurrently via thread pools. This section details the agent responsibilities, inter-agent communication protocol, and the phased execution semantics. The nine agents are organized into four functional categories based on their role in the cognitive pipeline as shown in the Table \ref{tab:agent_tx}.
 \begin{table}[!htbp]
 \centering
-\caption{Agent taxonomy showing phase assignment, responsibilities, and LLM model routing.}
+\caption{Agent taxonomy: phase, responsibilities, and LLM routing.}
 \label{tab:agent_tx}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -101,17 +128,26 @@ $\mathcal{O}\!\left(\sum_{i} T_{\max}^{(i)}\right)$, where $T_{\max}^{(i)}$ deno
 
 In practice, the overall latency is dominated by large language model (LLM) inference, which typically requires $2$--$8$ seconds per agent. Due to parallel execution within each phase, the total pipeline latency scales approximately as $4 \cdot T_{\text{LLM}}^{\max}$, rather than $9 \cdot T_{\text{LLM}}$ under fully sequential execution. This results in a theoretical speedup of approximately $2.25\times$ achieved through parallelization.
 Agents communicate through a shared context dictionary (blackboard architecture) rather than
-direct message passing. Each agent reads from and writes to this shared state under orchestrator coordination. The communication protocol is defined by the AgentMessage dataclass below:
-\begin{lstlisting}[language=Python, caption={AgentMessage Data Structure}]
-@dataclass
-class AgentMessage:
-    sender: str        # originating agent name
-    receiver: str      # target agent (or 'broadcast')
-    content: Dict      # structured JSON payload
-    message_type: str  # 'request' | 'response' | 'broadcast'
-    priority: int      # message priority (0=normal, 1=high)
-    timestamp: float   # creation timestamp
-\end{lstlisting}
+direct message passing. Each agent reads from and writes to this shared state under orchestrator coordination. The communication protocol is defined by the \texttt{AgentMessage} record, whose fields are summarised in Table~\ref{tab:agentmessage}.
+\begin{table}[!htbp]
+\centering
+\caption{Fields of the \texttt{AgentMessage} communication record.}
+\label{tab:agentmessage}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{sender} & \texttt{str} & Originating agent name \\
+\texttt{receiver} & \texttt{str} & Target agent, or \texttt{broadcast} \\
+\texttt{content} & \texttt{Dict} & Structured JSON payload \\
+\texttt{message\_type} & \texttt{str} & \texttt{request}, \texttt{response}, or \texttt{broadcast} \\
+\texttt{priority} & \texttt{int} & Message priority ($0$ normal, $1$ high) \\
+\texttt{timestamp} & \texttt{float} & Creation timestamp \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 This blackboard pattern was chosen over direct agent-to-agent messaging for three reasons: (i) it simplifies the data flow graph by centralizing state; (ii) it enables late-binding where agents can access results from any prior phase without explicit coupling; and (iii) it facilitates debugging and logging since all intermediate states are preserved in a single dictionary.
 
@@ -124,29 +160,8 @@ and non-blocking dispatch strategy.
 \subsection{Kafka Consumer with Sliding Window}
 The system consumes messages from a Kafka topic where each message represents a single sensor reading with six dimensions: temperature, humidity, vibration, pressure, energy consumption, and mechanical load. The consumer implements a per-machine windowing
 mechanism that buffers exactly W=10 consecutive readings before dispatching a complete window
-to the agent pipeline:
-\begin{algorithm}[!htbp]
-\small
-\caption{Non-Blocking Windowed Stream Processing}
-\label{alg:stream_processing}
-\begin{algorithmic}[1]
-\Require Kafka stream $\mathcal{S}$, window size $W = 10$
-\Ensure Continuous maintenance decisions
-\State buffers $\gets \{\}$ \Comment{Per-machine sliding windows}
-\State pool $\gets$ ThreadPoolExecutor(max\_workers = 4)
-\While{true}
-    \State msg $\gets$ kafka\_consumer.poll()
-    \State reading $\gets$ parse(msg) \Comment{Convert to SensorReading}
-    \State buffers[reading.machine\_id].append(reading)
-    \If{$|$buffers[reading.machine\_id]$| \geq W$}
-        \State window $\gets$ buffers[reading.machine\_id]
-        \State buffers[reading.machine\_id] $\gets [\,]$
-        \State pool.submit(orchestrator.process, window)
-        \State \Comment{Non-blocking: consumer continues immediately}
-    \EndIf
-\EndWhile
-\end{algorithmic}
-\end{algorithm}
+to the agent pipeline. The non-blocking consumer loop --- which polls Kafka, appends each parsed reading to its per-machine buffer, and dispatches a full window to a worker-thread pool without blocking further ingestion --- is given in Algorithm~\ref{alg:stream_processing} (Appendix~\ref{app:algorithms}).
+
 The window buffer is thread-safe (protected by a threading.Lock) since the Kafka consumer and
 worker threads operate concurrently. The choice of W=10 represents a design trade-off: smaller windows provide faster response but less statistical power for anomaly detection; larger windows improve detection accuracy but increase response latency. With per-minute sensor readings, W=10 provides a 10-minute analysis window, which aligns with industrial maintenance decision-making timescales. 
 
@@ -250,7 +265,7 @@ The 45 forwarded machines yield a scheduling instance with $T=19$ slots (slot du
 
 \begin{table}[!htbp]
 \centering
-\caption{Multi-agent pipeline cognitive output on 50 streamed machines (5 windows $\times$ 10 readings each).}
+\caption{Multi-agent cognitive output on 50 streamed machines.}
 \label{tab:str50}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -278,30 +293,32 @@ Average damage index                 & 0.438 & moderate cumulative damage accumu
 
 \subsection{Per-Machine Agent Output}
 \label{sec:agent_output_example}
-The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Pattern Learning $\to$ Diagnosis $\to$ Planning) for each machine in the streaming run is a structured per-machine state record consumed by the Phase~3 Action agent and forwarded to the scheduling layer. Listing~\ref{lst:agent_state_example} reproduces the record for \texttt{machine\_002} from the 50-machine streaming run; the complete fleet output is the list of $45$ such records that defines the scheduling-layer input.
+The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Pattern Learning $\to$ Diagnosis $\to$ Planning) for each machine in the streaming run is a structured per-machine state record consumed by the Phase~3 Action agent and forwarded to the scheduling layer. Table~\ref{tab:agent_state_example} reproduces the record for \texttt{machine\_002} from the 50-machine streaming run; the complete fleet output is the list of $45$ such records that defines the scheduling-layer input.
 
-\begin{lstlisting}[language=json,caption={Per-machine agent output emitted by the cognitive layer for \texttt{machine\_002} during the 50-machine streaming run. The same dictionary structure is produced for every machine flagged by Tier~1 constraints.},label={lst:agent_state_example},basicstyle=\ttfamily\footnotesize]
-{
-  "machine_id":        "machine_002",
-  "priority_score":    252.40,
-  "priority_level":    "CRITICAL",
-  "health_index":      0.2847,
-  "damage_index":      0.8689,
-  "anomaly_score":     1.0000,
-  "is_operating":      false,
-  "risk_state":        true,
-  "needs_maintenance": true,
-  "n_violations":      11,
-  "violation_types":   [
-      "energy_limit",
-      "vibration_trend",   "vibration_max", "vibration_cavitation",
-      "pressure_max",
-      "temperature_envelope", "temperature_critical", "temperature_trend",
-      "humidity_temperature_coupling",
-      "energy_trend",      "energy_cavitation"
-  ],
-  "n_readings":        10
-}
-\end{lstlisting}
+\begin{table}[!htbp]
+\centering
+\caption{Per-machine agent output emitted by the cognitive layer for \texttt{machine\_002} during the 50-machine streaming run.}
+\label{tab:agent_state_example}
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}l p{7.3cm}@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+\texttt{machine\_id}        & \texttt{machine\_002} \\
+\texttt{priority\_score}    & $252.40$ \\
+\texttt{priority\_level}    & \texttt{CRITICAL} \\
+\texttt{health\_index}      & $0.2847$ \\
+\texttt{damage\_index}      & $0.8689$ \\
+\texttt{anomaly\_score}     & $1.0000$ \\
+\texttt{is\_operating}      & \texttt{false} \\
+\texttt{risk\_state}        & \texttt{true} \\
+\texttt{needs\_maintenance} & \texttt{true} \\
+\texttt{n\_violations}      & $11$ \\
+\texttt{n\_readings}        & $10$ \\
+\texttt{violation\_types}   & energy\_limit, vibration\_trend, vibration\_max, vibration\_cavitation, pressure\_max, temperature\_envelope, temperature\_critical, temperature\_trend, humidity\_temperature\_coupling, energy\_trend, energy\_cavitation \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 The fields trace back to specific agent outputs: \texttt{priority\_score} and \texttt{priority\_level} are emitted by the Planning agent from the linear weighting formula of 5.3.2; \texttt{health\_index}, \texttt{damage\_index}, \texttt{anomaly\_score}, \texttt{is\_operating}, and \texttt{risk\_state} are derived by the Monitoring agent through the constraints engine of 5.3.2; \texttt{n\_violations} and \texttt{violation\_types} are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; \texttt{needs\_maintenance} is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.

@@ -181,66 +181,9 @@ G &= \max\!\left(200,\; \min\!\left(400,\; n_{\text{bits}}\right)\right).
 
 This prevents both under-exploration for large problems and wasteful computation for small ones.
 
-\begin{algorithm}[!htbp]
-\footnotesize
-\setlength{\baselineskip}{9pt}
-\caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
-\label{alg:qiea}
-\begin{algorithmic}[1]
+The full QIEA procedure is given in Algorithm~\ref{alg:qiea} (Appendix~\ref{app:algorithms}).
 
-\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, $n = N \cdot T$
-\Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
-
-\Statex \textbf{// Adaptive parameter scaling}
-\State $K \gets \max(20, \min(50, \lfloor n/4 \rfloor))$
-\State $G \gets \max(200, \min(400, n))$
-
-\Statex \textbf{// Initialise quantum population}
-\For{$k = 0$ to $K-1$}
-    \For{$i = 0$ to $n-1$}
-        \State $\alpha_{k,i}, \beta_{k,i} \gets \frac{1}{\sqrt{2}}$
-    \EndFor
-\EndFor
-
-\State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
-
-\For{$g = 0$ to $G-1$}
-
-\Statex \textbf{// Observation}
-\For{$k = 0$ to $K-1$}
-    \For{$i = 0$ to $n-1$}
-        \State $x_{k,i} \gets (\mathcal{U}(0,1) < \beta_{k,i}^2)$
-    \EndFor
-\EndFor
-
-\Statex \textbf{// Evaluation}
-\For{$k = 0$ to $K-1$}
-    \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
-    \If{$E_k < E^*$}
-        \State $E^* \gets E_k$, \quad $\mathbf{x}^* \gets \mathbf{x}_k$
-    \EndIf
-\EndFor
-
-\Statex \textbf{// Update}
-\State $\Delta \theta \gets 0.01\pi \cdot \max(0.1, 1 - g/G)$
-
-\For{$k = 0$ to $K-1$}
-    \For{$i = 0$ to $n-1$}
-        \If{$x_{k,i} \neq x^*_i$}
-            \State $\delta \gets \pm \Delta \theta$
-            \State update $(\alpha_{k,i}, \beta_{k,i})$ via rotation
-        \EndIf
-    \EndFor
-\EndFor
-
-\EndFor
-
-\State \Return $\mathbf{x}^*, E^*$
-
-\end{algorithmic}
-\end{algorithm}
-
-The rotation gate (lines 45–49) is the core quantum-inspired mechanism. Unlike classical genetic algorithms that rely on crossover and mutation, QIEA evolves the probability distribution over solutions. The annealing schedule on Δθ (line 34) ensures broad exploration in early generations (large rotations) and fine-tuning in later generations (small rotations), analogous to the temperature schedule in simulated annealing but operating in the amplitude space.
+The rotation-gate update is the core quantum-inspired mechanism. Unlike classical genetic algorithms that rely on crossover and mutation, QIEA evolves the probability distribution over solutions. The annealing schedule on the rotation angle $\Delta\theta$ ensures broad exploration in early generations (large rotations) and fine-tuning in later generations (small rotations), analogous to the temperature schedule in simulated annealing but operating in the amplitude space.
 
 \section{Simulated Quantum Annealing (SQA)}
 SQA \cite{KadowakiNishimori1998} simulates quantum annealing using path-integral Monte Carlo. The quantum system with transverse field is mapped to a classical system with an additional (imaginary time) dimension via the Suzuki-Trotter decomposition. The algorithm maintains M = 16 classical replicas (Trotter slices) coupled by an inter-replica interaction:
@@ -345,68 +288,95 @@ The Quantum Approximate Optimization Algorithm \cite{Farhi2014} constructs a par
 
 The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (lines 28–37) operates within each machine's qubit block, swapping amplitude only between basis states that have the same Hamming weight. Starting from a one-hot initial state (line 11), the mixer can only reach other one-hot configurations, eliminating the need for the one-hot penalty term during the quantum search and preserving feasibility by construction. This contrasts with QIEA and SQA, which must enforce one-hot constraints through penalty terms in the QUBO energy.
 
-\begin{algorithm}[!htbp]
-\footnotesize
-\setlength{\baselineskip}{9pt}
-\caption{QAOA Hardware Execution Pipeline}
-\label{alg:qaoa_hardware}
-\begin{algorithmic}[1]
+The full hardware execution pipeline is given in Algorithm~\ref{alg:qaoa_hardware} (Appendix~\ref{app:algorithms}).
 
-\Require $\mathcal{M}, T$, backend
-\Ensure $\mathbf{x}^*, \text{Cost}^*$
-
-\Statex \textbf{// Phase 1: Parameter optimisation}
-\State $N_{\text{opt}} \gets \min(N,4)$
-\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}[0:N_{\text{opt}}], T)$
-\State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets \text{QAOA-XY}(\mathbf{h}, \mathbf{J})$
-
-\Statex \textbf{// Phase 2: Circuit construction}
-\State $n \gets N \cdot T$, \quad $qc \gets \text{QuantumCircuit}(n)$
-\For{$m = 0$ to $N-1$}
-    \State $qc.x(mT)$
-\EndFor
-
-\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}, T)$
-
-\For{$\ell = 0$ to $p-1$}
-    \State apply problem unitary using $RZ$ and $CX$
-    \For{$m = 0$ to $N-1$}
-        \For{$t = 0$ to $T-1$}
-            \State apply XY mixer on $(mT+t,\; mT+(t+1)\bmod T)$
-        \EndFor
-    \EndFor
-\EndFor
-
-\State $qc.\text{measure\_all}()$
-
-\Statex \textbf{// Phase 3: Execution}
-\State $qc_t \gets \text{transpile}(qc,\text{backend})$
-\State counts $\gets \text{SamplerV2}(\text{backend}).\text{run}(qc_t)$
-
-\Statex \textbf{// Phase 4: Decode}
-\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
-
-\For{top bitstrings}
-    \State $\mathbf{x} \gets \text{decode}(\cdot)$
-    \If{$\text{feasible}(\mathbf{x})$ \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
-        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
-        \State $\mathbf{x}^* \gets \mathbf{x}$
-    \EndIf
-\EndFor
-
-\State \Return $\mathbf{x}^*, \text{Cost}^*$
-
-\end{algorithmic}
-\end{algorithm}
-
-Algorithm \ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter transfer strategy (lines 1–5) optimizes angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters — that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step (line 43) maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
-Figure 7 illustrates the circuit architecture for a minimal instance (N = 2 machines, T = 4 time options), showing the initial X-gate preparation, alternating problem unitary (RZ/RZZ) and XY ring mixer layers, and final measurement. Each machine's qubits form an independent block within the mixer, preserving one-hot feasibility.
+Algorithm~\ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter-transfer strategy optimizes the angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters --- that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
+Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction. The measured cost expectation $\langle H_C\rangle$ drives a classical COBYLA optimiser with multiple restarts, which updates the variational angles $(\gamma_\ell,\beta_\ell)$ and closes the hybrid quantum--classical loop.
 
 \begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1\textwidth]{figures/images/fig7_qaoa_circuit.png}
-    \caption{QAOA circuit for minimal scheduling instance ($N=2$, $T=4$).}
-    \label{fig:qaoa-circuit}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  wire/.style={thick},
+  xg/.style={draw,thick,fill=pallight!55,minimum width=0.62cm,minimum height=0.56cm,inner sep=1pt},
+  rzg/.style={draw,thick,fill=palmed!22,minimum width=0.80cm,minimum height=0.56cm,inner sep=1pt},
+  xyg/.style={draw,thick,fill=paldark!15,minimum width=0.80cm,inner sep=1pt},
+  mg/.style={draw,thick,fill=pallight!85,minimum width=0.62cm,minimum height=0.58cm,inner sep=1pt},
+  zd/.style={circle,fill=paldark,minimum size=5pt,inner sep=0pt},
+  zo/.style={circle,fill=palmed,minimum size=5pt,inner sep=0pt},
+  barr/.style={dashed,gray!60,thick},
+  stg/.style={font=\footnotesize\bfseries,align=center},
+  box/.style={draw,thick,rounded corners,align=center}
+]
+% ===== machine-block backgrounds (one-hot encoding: T qubits per machine) =====
+\fill[pallight!22,rounded corners] (0.55,3.55) rectangle (9.20,7.45);
+\fill[palmed!15,rounded corners]   (0.55,-0.45) rectangle (9.20,3.45);
+\node[font=\scriptsize\bfseries,paldark,rotate=90]        at (-1.95,5.5) {Machine 1 block};
+\node[font=\scriptsize\bfseries,palmed!85!black,rotate=90] at (-1.95,1.5) {Machine 2 block};
+% ===== qubit wires + labels =====
+\foreach \i/\y/\m/\t in {0/7/1/0,1/6/1/1,2/5/1/2,3/4/1/3,4/3/2/0,5/2/2/1,6/1/2/2,7/0/2/3}{
+  \draw[wire] (0.55,\y) -- (10.05,\y);
+  \node[left,font=\scriptsize] at (0.48,\y) {$q_{\i}\;(M_{\m},t_{\t})$};
+}
+% ===== Init: X on the t0 qubit of each block -> one-hot feasible start =====
+\node[xg] at (1.05,7) {$X$};
+\node[xg] at (1.05,3) {$X$};
+\draw[barr] (1.55,-0.5) -- (1.55,7.5);
+% ===== U_C: single-qubit R_Z(gamma) =====
+\foreach \y in {7,6,5,4,3,2,1,0}{ \node[rzg] at (2.30,\y) {$R_Z$}; }
+% ===== U_C: intra-block ZZ couplings (one-hot penalty, every slot pair) =====
+\foreach \x/\ya/\yb in {2.95/7/6,3.40/5/4,3.85/6/5,4.30/7/5,4.75/6/4,5.20/7/4,%
+                        2.95/3/2,3.40/1/0,3.85/2/1,4.30/3/1,4.75/2/0,5.20/3/0}{
+  \draw[thick,paldark] (\x,\ya) -- (\x,\yb);
+  \node[zd] at (\x,\ya){}; \node[zd] at (\x,\yb){};
+}
+% ===== U_C: inter-block ZZ (machines competing for a shared time slot) =====
+\foreach \ya/\yb in {7/3,6/2}{
+  \draw[thick,palmed] (5.75,\ya) -- (5.75,\yb);
+  \node[zo] at (5.75,\ya){}; \node[zo] at (5.75,\yb){};
+}
+% ===== U_M: XY ring mixer -- adjacent slot pairs =====
+\foreach \yc in {6.5,4.5,2.5,0.5}{ \node[xyg,minimum height=1.16cm] at (6.55,\yc) {XY}; }
+\foreach \yc in {5.5,1.5}{ \node[xyg,minimum height=1.16cm] at (7.45,\yc) {XY}; }
+% ===== U_M: XY ring closure (wrap-around q3-q0 and q7-q4) =====
+\foreach \ya/\yb in {7/4,3/0}{
+  \draw[thick,paldark] (8.45,\ya) -- (8.45,\yb);
+  \node[xyg,minimum height=0.56cm] at (8.45,\ya) {XY};
+  \node[xyg,minimum height=0.56cm] at (8.45,\yb) {XY};
+}
+\draw[barr] (9.15,-0.5) -- (9.15,7.5);
+% ===== Measurement =====
+\foreach \y in {7,6,5,4,3,2,1,0}{
+  \node[mg] at (9.70,\y) {};
+  \draw[thick] (9.55,\y-0.10) arc (200:-20:0.155);
+  \draw[thick,->] (9.70,\y-0.10) -- (9.83,\y+0.13);
+}
+% ===== classical register =====
+\draw[thick,double,double distance=1.3pt] (9.70,0) -- (9.70,-1.35) -- (10.70,-1.35);
+\draw[thick] (9.60,-0.80) -- (9.80,-0.62);
+\node[font=\scriptsize] at (9.97,-0.74) {$8$};
+\node[right,font=\scriptsize] at (10.72,-1.35) {classical register $c$};
+% ===== stage labels =====
+\node[stg] at (1.05,7.95) {Init};
+\node[stg] at (3.95,7.95) {$U_C(\gamma_\ell)$};
+\node[stg] at (7.50,7.95) {$U_M(\beta_\ell)$};
+\node[stg] at (9.70,7.95) {Measure};
+% ===== one-layer span + repeat indicator =====
+\draw[thick] (1.95,-0.95) -- (1.95,-1.18) -- (9.05,-1.18) -- (9.05,-0.95);
+\node[font=\footnotesize] at (5.5,-1.52)
+  {one QAOA layer $U_M(\beta_\ell)\,U_C(\gamma_\ell)$ --- repeated for $\ell = 1,\dots,p$};
+% ===== classical optimiser: the hybrid quantum--classical loop =====
+\node[box,fill=paldark!10,minimum width=8.6cm,minimum height=1.0cm] (opt) at (4.85,-2.95)
+  {\textbf{Classical optimiser} --- COBYLA with multiple restarts: minimise $\langle H_C\rangle$};
+\draw[thick,->] (10.70,-1.35) |- (opt.east)
+  node[pos=0.30,right=1pt,font=\scriptsize] {measured $\langle H_C\rangle$};
+\draw[thick,->] (opt.north -| 2.30,0) -- (2.30,-0.55)
+  node[pos=0.20,right=1pt,font=\scriptsize] {updated $(\gamma_\ell,\beta_\ell)$};
+\end{tikzpicture}%
+}
+\caption{QAOA circuit with XY ring mixer for a minimal scheduling instance ($N=2$, $T=4$); dark and mid-tone dots mark intra- and inter-block $ZZ$ couplings.}
+\label{fig:qaoa-circuit}
 \end{figure}
 
 \section{Classical Simulation (State Vector)}
@@ -465,38 +435,73 @@ Table~\ref{tab:ibm_hw} summarises the QAOA scaling study executed on the IBM Her
 
 The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
-\begin{table}[!htbp]
+\begin{landscape}
 \centering
-\caption{IBM Quantum hardware scaling: feasibility rate, circuit depth, and gate counts versus $N$.}
+
+\begin{minipage}{\linewidth}
+\centering
+\captionof{table}{IBM Quantum hardware scaling versus fleet size $N$.}
 \label{tab:ibm_hw}
-\small
-\renewcommand{\arraystretch}{1.05}
+{\scriptsize
+\renewcommand{\arraystretch}{1.0}
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\textwidth}{
->{\centering\arraybackslash}m{0.6cm}
->{\centering\arraybackslash}m{1.0cm}
->{\centering\arraybackslash}m{1.8cm}
+\begin{tabular}{
+>{\centering\arraybackslash}m{1.1cm}
 >{\centering\arraybackslash}m{1.4cm}
->{\centering\arraybackslash}m{1.6cm}
+>{\centering\arraybackslash}m{2.0cm}
 >{\centering\arraybackslash}m{1.7cm}
->{\centering\arraybackslash}m{1.4cm}
->{\centering\arraybackslash}X
+>{\centering\arraybackslash}m{1.7cm}
+>{\centering\arraybackslash}m{2.1cm}
+>{\centering\arraybackslash}m{2.6cm}
+>{\centering\arraybackslash}m{3.2cm}
 }
 \toprule
 \textbf{N} & \textbf{Qubits} & \textbf{Depth (transpiled)} & \textbf{CZ gates} & \textbf{SX gates} & \textbf{Feasibility rate} & \textbf{Best quantum cost} & \textbf{MILP cost} \\
 \midrule
-3  & 12  &       801 &     644 &  1{,}244 & \textbf{10.96\%} & \textbf{300.00} (matches MILP) & 300.00 \\
-5  & 20  &  1{,}226 & 1{,}935 & 3{,}651 & \textbf{0.24\%}  & \textbf{1{,}186.02} ($+1.3\%$ vs.\ MILP best-effort) & 1{,}170.7 (\emph{infeasible}) \\
-7  & 28  &  3{,}120 & 4{,}063 & 7{,}547 & \textbf{0.02\%}  & \textbf{3{,}069.07} (\emph{beats every classical heuristic}) & 2{,}404.95 (\emph{infeasible}) \\
-9  & 32  &  2{,}958 & 5{,}390 & 10{,}334 & \textbf{0.00\%}  & \emph{no feasible bitstring} (noise floor) & 1{,}206.95 (\emph{infeasible}) \\
-10 & 50  & $\sim$3{,}500 & $\sim$7{,}000  & $\sim$13{,}000 & --- (queue timeout) & --- & 3{,}694.44 (\emph{infeasible}) \\
+3  & 12  &       801 &     644 &  1{,}244 & \textbf{10.96\%} & \textbf{300.00} & 300.00 \\
+5  & 20  &  1{,}226 & 1{,}935 & 3{,}651 & \textbf{0.24\%}  & \textbf{1{,}186.02} & 1{,}170.7~(\emph{infeas.}) \\
+7  & 28  &  3{,}120 & 4{,}063 & 7{,}547 & \textbf{0.02\%}  & \textbf{3{,}069.07} & 2{,}404.95~(\emph{infeas.}) \\
+9  & 32  &  2{,}958 & 5{,}390 & 10{,}334 & \textbf{0.00\%}  & \emph{none} & 1{,}206.95~(\emph{infeas.}) \\
+10 & 50  & $\sim$3{,}500 & $\sim$7{,}000  & $\sim$13{,}000 & --- & --- & 3{,}694.44~(\emph{infeas.}) \\
 15 & 60  & $\sim$13{,}000 & $\sim$7{,}500  & --- & $<1\%$         & noise-dominated    & 1{,}500.00 \\
 20 & 80  & $\sim$24{,}000 & $\sim$14{,}000 & --- & $\sim 0\%$     & noise-dominated    & 2{,}000.00 \\
 25 & 100 & $\sim$38{,}000 & $\sim$22{,}000 & --- & $\sim 0\%$     & pure noise         & 2{,}500.00 \\
 30 & 120 & $\sim$55{,}000 & $\sim$33{,}000 & --- & $\sim 0\%$     & pure noise         & 3{,}000.00 \\
 \bottomrule
-\end{tabularx}
-\end{table}
+\end{tabular}}
+\end{minipage}
+
+\vspace{1.0em}
+
+\begin{minipage}{\linewidth}
+\centering
+\captionof{table}{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
+\label{tab:ext_str}
+{\scriptsize
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{l r c c r r c c r r c c r}
+\toprule
+\multirow{2}{*}{\textbf{Solver}}
+& \multicolumn{4}{c}{$N=7$ ($n_{\text{bits}}=28$, all CRITICAL)}
+& \multicolumn{4}{c}{$N=9$ ($n_{\text{bits}}=32$, all CRITICAL)}
+& \multicolumn{4}{c}{$N=10$ ($n_{\text{bits}}=50$, all CRITICAL)} \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms} \\
+\midrule
+MILP/CBC      &  2{,}404.95 & no & --- & 27   & 1{,}206.95 & no & --- & 26    & 3{,}694.44 & no & --- & 26 \\
+QIEA          &  4{,}800.38 & no & --- & 84   & 5{,}570.00 & no & --- & 96    & 4{,}444.14 & no & --- & 147 \\
+SA            &  5{,}192.95 & no & 8   & 57   & 6{,}289.25 & no & 10  & 58    & 10{,}493.56 & no & 11  & 71 \\
+GA            &  4{,}295.42 & no & 8   & 669  & 5{,}941.48 & no & 10  & 708   & 8{,}448.16 & no & 11  & 740 \\
+TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 8{,}448.16 & no & 11  & 225 \\
+\textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}}
+\end{minipage}
+
+\end{landscape}
 \FloatBarrier
 
 The remaining rows $N=5$--$30$ are simulator-projected estimates from the noise-scaling model below; their measured replication is left to follow-up work because the hardware queue and per-instance shot budget grow rapidly beyond $N=4$. The noise analysis reveals exponential fidelity decay with circuit depth:
@@ -509,7 +514,16 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig5_noise_frontier.png}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/noise_frontier_a.png}
+        \caption{Circuit complexity.}
+        \label{fig:noise-frontier-a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/noise_frontier_b.png}
+        \caption{Noise-scaling frontier.}
+        \label{fig:noise-frontier-b}
+    \end{subfigure}
     \caption{IBM Quantum hardware scaling: complexity vs. fleet size.}
     \label{fig:noise-frontier}
 \end{figure}
@@ -522,7 +536,7 @@ End-to-end streaming sensor data through the full multi-agent pipeline produces 
 
 \begin{table}[!htbp]
 \centering
-\caption{Streaming real-time scheduling: priorities, health and damage indices from sensor constraints.}
+\caption{Streaming real-time scheduling priorities and health/damage indices.}
 \label{tab:str_sch}
 \small
 \renewcommand{\arraystretch}{1.05}
@@ -556,7 +570,16 @@ Streaming reveals three critical departures from synthetic benchmarks. \textbf{H
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/images/fig9_streaming_vs_synthetic.png}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/streaming_synth_a.png}
+        \caption{Solution cost: streaming vs.\ synthetic.}
+        \label{fig:streaming-vs-synthetic-a}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/images/streaming_synth_b.png}
+        \caption{Streaming-derived machine states.}
+        \label{fig:streaming-vs-synthetic-b}
+    \end{subfigure}
     \caption{Real-time vs. synthetic benchmark costs across fleet sizes.}
     \label{fig:streaming-vs-synthetic}
 \end{figure}
@@ -655,37 +678,7 @@ The $N=5$ column of Table~\ref{tab:cs_n45} carries the chapter's most informativ
 \subsection{Extended Streaming Benchmark at $N = 7, 9, 10$}
 \label{sec:extended_streaming}
 
-Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\ref{tab:ext_str} runs the full solver suite on fresh streaming instances at $N\in\{7,9,10\}$ under (C1)--(C4): MILP reports infeasibility, and QIEA/SA/GA/TS return violation-laden best-efforts whose violation counts grow with the number of CRITICAL machines contending for the $\rho=1$-slot horizon at capacity $C=3$.
-
-\begin{table}[!htbp]
-\centering
-\caption{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
-\label{tab:ext_str}
-\small
-\renewcommand{\arraystretch}{1.05}
-\setlength{\tabcolsep}{4pt}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{l r c c r r c c r r c c r}
-\toprule
-\multirow{2}{*}{\textbf{Solver}}
-& \multicolumn{4}{c}{$N=7$ ($n_{\text{bits}}=28$, all CRITICAL)}
-& \multicolumn{4}{c}{$N=9$ ($n_{\text{bits}}=32$, all CRITICAL)}
-& \multicolumn{4}{c}{$N=10$ ($n_{\text{bits}}=50$, all CRITICAL)} \\
-\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms} \\
-\midrule
-MILP/CBC      &  2{,}404.95 & no & --- & 27   & 1{,}206.95 & no & --- & 26    & 3{,}694.44 & no & --- & 26 \\
-QIEA          &  4{,}800.38 & no & --- & 84   & 5{,}570.00 & no & --- & 96    & 4{,}444.14 & no & --- & 147 \\
-SA            &  5{,}192.95 & no & 8   & 57   & 6{,}289.25 & no & 10  & 58    & 10{,}493.56 & no & 11  & 71 \\
-GA            &  4{,}295.42 & no & 8   & 669  & 5{,}941.48 & no & 10  & 708   & 8{,}448.16 & no & 11  & 740 \\
-TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 8{,}448.16 & no & 11  & 225 \\
-\textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
-\bottomrule
-\end{tabular}}
-\end{table}
-\FloatBarrier
+Pushing the streaming fleet past $N=5$ confirms the feasibility cliff. Table~\ref{tab:ext_str} runs the full solver suite on fresh streaming instances at $N\in\{7,9,10\}$ under (C1)--(C4): MILP reports infeasibility, and QIEA/SA/GA/TS return violation-laden best-efforts whose violation counts grow with the number of CRITICAL machines contending for the $\rho=1$-slot horizon at capacity $C=3$. The full solver suite is reported in Table~\ref{tab:ext_str}, presented together with the hardware-scaling overview of Table~\ref{tab:ibm_hw} on the shared landscape page above.
 
 The QAOA-XY hardware row at $N=7$ is the second measured datum (after $N=5$ in Table~\ref{tab:cs_n45}): with $V=2$ violations and cost $3{,}069.07$, it beats every classical heuristic ($V=8$, cost $\geq 4{,}295.42$) by $36\%$ in cost while halving the violation count.
 

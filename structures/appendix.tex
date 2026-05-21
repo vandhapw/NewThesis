@@ -1,4 +1,275 @@
 \begin{appendices}
-\chapter{Appendix A}
-Appendix content
+\renewcommand{\chaptername}{Appendix}
+\chapter{}
+\label{app:algorithms}
+\setcounter{algorithm}{0}
+\renewcommand{\thealgorithm}{\thechapter.\arabic{algorithm}}
+\setstretch{1.0}
+
+\section{Data Ingestion and Spatio-Temporal Modelling}
+
+\begin{algorithm}[H]
+\caption{Active Sensor to Kafka Ingestion Loop}
+\label{alg:plalion_kafka}
+\begin{algorithmic}[1]
+\Require API\_URL, SERIAL\_NUMBER, KAFKA\_BOOTSTRAP, KAFKA\_TOPIC
+\Ensure Continuous Kafka message stream
+\State producer $\gets$ KafkaProducer(
+\Statex \hspace{1.5em} bootstrap\_servers = KAFKA\_BOOTSTRAP,
+\Statex \hspace{1.5em} acks = all,
+\Statex \hspace{1.5em} retries = 3,
+\Statex \hspace{1.5em} value\_serializer = JSON
+\Statex )
+\State message\_count $\gets$ 0
+\While{true}
+    \State payload $\gets$ \{ ``serial\_num'': SERIAL\_NUMBER \}
+    \State response $\gets$ HTTP\_POST(API\_URL, payload, timeout = 10s)
+    \If{response.status = 200}
+        \State row $\gets$ response.json()[``rows''][0]
+        \State kafka\_msg $\gets$ \{
+        \Statex \hspace{2em} serial\_number, temp, hum, ozone,
+        \Statex \hspace{2em} dust, co2, voc, timestamp
+        \Statex \hspace{1em} \}
+        \State future $\gets$ producer.send(
+        \Statex \hspace{2em} KAFKA\_TOPIC,
+        \Statex \hspace{2em} key = SERIAL\_NUMBER,
+        \Statex \hspace{2em} value = kafka\_msg
+        \Statex \hspace{1em} )
+        \State metadata $\gets$ future.get(timeout = 10s)
+        \State message\_count $\gets$ message\_count + 1
+    \EndIf
+    \State sleep(10s)
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\small
+\caption{Training Procedure for Temporal Graph Convolutional Network (T-GCN)}
+\label{alg:train_tgcn}
+\begin{algorithmic}[1]
+\Require $X_{\text{train}}$ (pooled sequences), $y_{\text{train}}$, adjacency matrix $\mathbf{A}$, epochs = 15, learning rate $\eta = 5 \times 10^{-4}$
+\Ensure Trained T-GCN model
+\State model $\gets$ TemporalGCN(input\_dim = 7, gcn\_hidden = 64, gru\_hidden = 128, n\_machines = 50)
+\State model $\gets$ model.to(device)
+\State $\mathbf{A} \gets \mathbf{A}$.to(device)
+\State optimizer $\gets$ Adam(model.parameters(), $\eta$, weight\_decay = $1 \times 10^{-5}$)
+\State scheduler $\gets$ CosineAnnealingLR(optimizer, $T_{\max} =$ epochs)
+\State criterion $\gets$ MSELoss()
+\State loader $\gets$ DataLoader(FleetDataset($X_{\text{train}}, y_{\text{train}}$),
+\Statex \hspace{2em} batch\_size = 32, shuffle = True)
+\For{epoch $= 1$ to epochs}
+    \State epoch\_loss $\gets 0$
+    \For{each batch $(\mathbf{b}_x, \mathbf{b}_y)$ in loader}
+        \State $\mathbf{b}_x, \mathbf{b}_y \gets \mathbf{b}_x.\text{to(device)}, \mathbf{b}_y.\text{to(device)}$
+        \State $\hat{\mathbf{y}} \gets \text{model}(\mathbf{b}_x, \mathbf{A})$ \Comment{Forward pass}
+        \State loss $\gets$ criterion($\hat{\mathbf{y}}, \mathbf{b}_y$)
+        \State optimizer.zero\_grad()
+        \State loss.backward()
+        \State clip\_grad\_norm(model.parameters(), max\_norm = 1.0)
+        \State optimizer.step()
+        \State epoch\_loss $\gets$ epoch\_loss + loss.item()
+    \EndFor
+    \State scheduler.step()
+\EndFor
+\State \Return model
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\small
+\caption{Sensor Alignment via Z-score Distribution Mapping}
+\label{alg:sensor_aligner}
+\begin{algorithmic}[1]
+\Require $temp_{\text{raw}}, hum_{\text{raw}}$, rolling buffers $B_{\text{temp}}, B_{\text{hum}}$ (size $\leq 100$),
+target parameters $\mu_{\text{mfg}}^{\text{temp}}, \sigma_{\text{mfg}}^{\text{temp}}, \mu_{\text{mfg}}^{\text{hum}}, \sigma_{\text{mfg}}^{\text{hum}}$
+\Ensure $temp_{\text{mapped}}, hum_{\text{mapped}}$
+\State $B_{\text{temp}}.\text{append}(temp_{\text{raw}})$
+\State $B_{\text{hum}}.\text{append}(hum_{\text{raw}})$
+\If{$|B_{\text{temp}}| > 100$}
+    \State remove oldest entry from $B_{\text{temp}}$
+    \State remove oldest entry from $B_{\text{hum}}$
+\EndIf
+\State $\mu_{\text{env}}^{\text{temp}} \gets \mathrm{mean}(B_{\text{temp}})$
+\State $\sigma_{\text{env}}^{\text{temp}} \gets \max\bigl(\mathrm{std}(B_{\text{temp}}),\, 1.0\bigr)$ \Comment{Avoid division by zero}
+\State $\mu_{\text{env}}^{\text{hum}} \gets \mathrm{mean}(B_{\text{hum}})$
+\State $\sigma_{\text{env}}^{\text{hum}} \gets \max\bigl(\mathrm{std}(B_{\text{hum}}),\, 1.0\bigr)$
+\State $z_{\text{temp}} \gets \dfrac{temp_{\text{raw}} - \mu_{\text{env}}^{\text{temp}}}{\sigma_{\text{env}}^{\text{temp}}}$
+\State $temp_{\text{mapped}} \gets z_{\text{temp}} \cdot \sigma_{\text{mfg}}^{\text{temp}} + \mu_{\text{mfg}}^{\text{temp}}$
+\State $z_{\text{hum}} \gets \dfrac{hum_{\text{raw}} - \mu_{\text{env}}^{\text{hum}}}{\sigma_{\text{env}}^{\text{hum}}}$
+\State $hum_{\text{mapped}} \gets z_{\text{hum}} \cdot \sigma_{\text{mfg}}^{\text{hum}} + \mu_{\text{mfg}}^{\text{hum}}$
+\State \Return $(temp_{\text{mapped}}, hum_{\text{mapped}})$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\small
+\caption{Propagation of Anchor Prediction to Fleet}
+\label{alg:propagate_fleet}
+\begin{algorithmic}[1]
+\Require trained model $f_{\theta}$ (T-GCN), scaler $\mathcal{S}$, adjacency matrix $\mathbf{A}$, machine set $\mathcal{M}$, registry, anchor prediction $\boldsymbol{\delta}$, anchor node $m_a = 40$
+\Ensure results: mapping $\{ m \mapsto \hat{\mathbf{y}}_m \}$
+\State results $\gets \{\}$
+\State mid\_to\_idx $\gets$ mapping from machine ID to node index
+\For{each machine $m \in \mathcal{M}$ with $m \neq m_a$}
+    \State node\_idx $\gets$ mid\_to\_idx[$m$]
+    \State $\mathbf{X}_m \gets$ copy(registry[$m$][``X''][-1])
+    \State $\mathbf{x}_m^{\text{prev}} \gets$ copy(registry[$m$][``prev''][-1])
+    \State set random seed using $m$ \Comment{Deterministic perturbation}
+    \State $\boldsymbol{\epsilon}_m \sim \mathcal{U}(0.98,\, 1.02)^7$
+    \State $\boldsymbol{\delta}_m \gets \boldsymbol{\delta} \cdot 0.02 \odot \boldsymbol{\epsilon}_m$
+    \State $\mathbf{X}_m[-1] \gets \mathbf{X}_m[-1] + \boldsymbol{\delta}_m$
+    \State $\hat{\mathbf{y}}_m \gets$ PREDICT\_ANCHOR\_MACHINE(
+    \Statex \hspace{2em} $f_{\theta}, \mathcal{S}, \mathbf{A}, \mathbf{X}_m, \mathbf{x}_m^{\text{prev}},$ node\_idx)
+    \State \Comment{Apply uniqueness constraint}
+    \For{$i = 1$ to $5$}
+        \State $\eta \sim \mathcal{U}(-0.01,\, 0.01)$
+        \State $\hat{\mathbf{y}}_m[i] \gets \hat{\mathbf{y}}_m[i] + \eta \cdot \hat{\mathbf{y}}_m[i]$
+    \EndFor
+    \State results[$m$] $\gets \hat{\mathbf{y}}_m$
+\EndFor
+\State \Return results
+\end{algorithmic}
+\end{algorithm}
+
+\section{Real-Time Multi-Agent Stream Processing}
+
+\begin{algorithm}[H]
+\small
+\caption{Non-Blocking Windowed Stream Processing}
+\label{alg:stream_processing}
+\begin{algorithmic}[1]
+\Require Kafka stream $\mathcal{S}$, window size $W = 10$
+\Ensure Continuous maintenance decisions
+\State buffers $\gets \{\}$ \Comment{Per-machine sliding windows}
+\State pool $\gets$ ThreadPoolExecutor(max\_workers = 4)
+\While{true}
+    \State msg $\gets$ kafka\_consumer.poll()
+    \State reading $\gets$ parse(msg) \Comment{Convert to SensorReading}
+    \State buffers[reading.machine\_id].append(reading)
+    \If{$|$buffers[reading.machine\_id]$| \geq W$}
+        \State window $\gets$ buffers[reading.machine\_id]
+        \State buffers[reading.machine\_id] $\gets [\,]$
+        \State pool.submit(orchestrator.process, window)
+        \State \Comment{Non-blocking: consumer continues immediately}
+    \EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\section{Quantum-Inspired and Quantum Scheduling}
+
+\begin{algorithm}[H]
+\footnotesize
+\setlength{\baselineskip}{9pt}
+\caption{Quantum-Inspired Evolutionary Algorithm (QIEA) for QUBO Optimisation}
+\label{alg:qiea}
+\begin{algorithmic}[1]
+
+\Require QUBO matrix $\mathbf{Q} \in \mathbb{R}^{n \times n}$, $n = N \cdot T$
+\Ensure Best solution $\mathbf{x}^*$ and energy $E^*$
+
+\Statex \textbf{// Adaptive parameter scaling}
+\State $K \gets \max(20, \min(50, \lfloor n/4 \rfloor))$
+\State $G \gets \max(200, \min(400, n))$
+
+\Statex \textbf{// Initialise quantum population}
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \State $\alpha_{k,i}, \beta_{k,i} \gets \frac{1}{\sqrt{2}}$
+    \EndFor
+\EndFor
+
+\State $\mathbf{x}^* \gets \emptyset$, \quad $E^* \gets +\infty$
+
+\For{$g = 0$ to $G-1$}
+
+\Statex \textbf{// Observation}
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \State $x_{k,i} \gets (\mathcal{U}(0,1) < \beta_{k,i}^2)$
+    \EndFor
+\EndFor
+
+\Statex \textbf{// Evaluation}
+\For{$k = 0$ to $K-1$}
+    \State $E_k \gets \mathbf{x}_k^\top \mathbf{Q} \mathbf{x}_k$
+    \If{$E_k < E^*$}
+        \State $E^* \gets E_k$, \quad $\mathbf{x}^* \gets \mathbf{x}_k$
+    \EndIf
+\EndFor
+
+\Statex \textbf{// Update}
+\State $\Delta \theta \gets 0.01\pi \cdot \max(0.1, 1 - g/G)$
+
+\For{$k = 0$ to $K-1$}
+    \For{$i = 0$ to $n-1$}
+        \If{$x_{k,i} \neq x^*_i$}
+            \State $\delta \gets \pm \Delta \theta$
+            \State update $(\alpha_{k,i}, \beta_{k,i})$ via rotation
+        \EndIf
+    \EndFor
+\EndFor
+
+\EndFor
+
+\State \Return $\mathbf{x}^*, E^*$
+
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\footnotesize
+\setlength{\baselineskip}{9pt}
+\caption{QAOA Hardware Execution Pipeline}
+\label{alg:qaoa_hardware}
+\begin{algorithmic}[1]
+
+\Require $\mathcal{M}, T$, backend
+\Ensure $\mathbf{x}^*, \text{Cost}^*$
+
+\Statex \textbf{// Phase 1: Parameter optimisation}
+\State $N_{\text{opt}} \gets \min(N,4)$
+\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}[0:N_{\text{opt}}], T)$
+\State $(\boldsymbol{\gamma}^*, \boldsymbol{\beta}^*) \gets \text{QAOA-XY}(\mathbf{h}, \mathbf{J})$
+
+\Statex \textbf{// Phase 2: Circuit construction}
+\State $n \gets N \cdot T$, \quad $qc \gets \text{QuantumCircuit}(n)$
+\For{$m = 0$ to $N-1$}
+    \State $qc.x(mT)$
+\EndFor
+
+\State $(\mathbf{h}, \mathbf{J}) \gets \text{BuildQUBO} \rightarrow \text{Ising}(\mathcal{M}, T)$
+
+\For{$\ell = 0$ to $p-1$}
+    \State apply problem unitary using $RZ$ and $CX$
+    \For{$m = 0$ to $N-1$}
+        \For{$t = 0$ to $T-1$}
+            \State apply XY mixer on $(mT+t,\; mT+(t+1)\bmod T)$
+        \EndFor
+    \EndFor
+\EndFor
+
+\State $qc.\text{measure\_all}()$
+
+\Statex \textbf{// Phase 3: Execution}
+\State $qc_t \gets \text{transpile}(qc,\text{backend})$
+\State counts $\gets \text{SamplerV2}(\text{backend}).\text{run}(qc_t)$
+
+\Statex \textbf{// Phase 4: Decode}
+\State $\mathbf{x}^* \gets \emptyset$, \quad $\text{Cost}^* \gets +\infty$
+
+\For{top bitstrings}
+    \State $\mathbf{x} \gets \text{decode}(\cdot)$
+    \If{$\text{feasible}(\mathbf{x})$ \textbf{and} $\text{PureCost}(\mathbf{x}) < \text{Cost}^*$}
+        \State $\text{Cost}^* \gets \text{PureCost}(\mathbf{x})$
+        \State $\mathbf{x}^* \gets \mathbf{x}$
+    \EndIf
+\EndFor
+
+\State \Return $\mathbf{x}^*, \text{Cost}^*$
+
+\end{algorithmic}
+\end{algorithm}
+
 \end{appendices}
