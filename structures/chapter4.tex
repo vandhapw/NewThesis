@@ -306,172 +306,13 @@ Machine~40 appears in both tables (out-degree rank 1 and in-degree rank 2), indi
 
 \section{T-GCN Model Architecture}
 The T-GCN architecture employed in this work comprises three stacked components, as illustrated in Figure \ref{fig:tgcn-flowchart}.
-\begin{landscape}
-\begin{figure}[ht]
-\centering
-\resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[
-    font=\sffamily\footnotesize,
-    >=Latex,
-    stage/.style={draw=#1!60, fill=#1!5, rounded corners=7pt, very thick, inner sep=6pt},
-    box/.style={draw=black!55, fill=white, rounded corners=3pt, align=center, minimum height=10mm, minimum width=24mm},
-    input/.style={box, draw=paldark!75, fill=pallight!30},
-    gcn/.style={box, draw=palmed!85!black, fill=palmed!18},
-    gru/.style={box, draw=paldark, fill=paldark!12},
-    result/.style={box, draw=palmed!70!black, fill=pallight!55},
-    op/.style={circle, draw=paldark, fill=palmed!40, very thick, minimum size=8mm, inner sep=0pt, font=\bfseries},
-    plus/.style={circle, draw=palmed!80!black, fill=pallight!70, very thick, minimum size=8mm, inner sep=0pt, font=\bfseries},
-    graphnode/.style={circle, draw=black!60, fill=white, minimum size=2.5mm, inner sep=0pt},
-    title/.style={font=\sffamily\bfseries\large, align=center},
-    labeltext/.style={font=\sffamily\scriptsize, align=center, text=black!70},
-    flow/.style={->, very thick, draw=paldark},
-    aux/.style={->, thick, draw=palmed!88!black},
-    feedback/.style={->, thick, dashed, draw=palmed!75!black},
-    terminal/.style={draw=paldark, fill=paldark, text=white, rounded corners=10pt, very thick, align=center, minimum height=8mm, minimum width=15mm, font=\sffamily\footnotesize\bfseries}
-]
 
-% -----------------------------------------------------------------------------
-% Header and legend
-% -----------------------------------------------------------------------------
-% \node[title] (heading) at (8.8,1.25) {Temporal Graph Convolutional Network (T-GCN) Detailed Workflow};
-% \node[labeltext, below=1mm of heading] (legend) {Legend: $\otimes$ or $\times$ = multiplication / element-wise gate product, $+$ = hidden-state fusion, dashed arrow = recurrent memory};
-
-% -----------------------------------------------------------------------------
-% Stage 1: temporal graph snapshots
-% -----------------------------------------------------------------------------
-\node[terminal] (start) at (-2.6,0) {Start};
-\node[input, minimum width=24mm, minimum height=16mm] (snap1) at (0,0) {};
-\node[labeltext, below=-1mm of snap1.north] {$G_{t-k+1}$};
-\begin{scope}[shift={(-.55,-.12)}]
-    \node[graphnode] (a1) at (0,0) {};
-    \node[graphnode, fill=pallight] (b1) at (.55,.36) {};
-    \node[graphnode] (c1) at (.55,-.36) {};
-    \node[graphnode, fill=palmed!45] (d1) at (1.15,0) {};
-    \draw[black!55] (a1)--(b1)--(d1)--(c1)--(a1) (b1)--(c1);
-\end{scope}
-\node[labeltext, below=0mm of snap1.south] {$A_{t-k+1},X_{t-k+1}$};
-
-\node[input, minimum width=24mm, minimum height=16mm] (snap2) at (3.0,0) {};
-\node[labeltext, below=-1mm of snap2.north] {$G_{t-k+2}$};
-\begin{scope}[shift={(2.45,-.12)}]
-    \node[graphnode] (a2) at (0,0) {};
-    \node[graphnode] (b2) at (.55,.36) {};
-    \node[graphnode, fill=pallight] (c2) at (.55,-.36) {};
-    \node[graphnode, fill=palmed!45] (d2) at (1.15,0) {};
-    \draw[black!55] (a2)--(b2)--(d2)--(c2)--(a2) (a2)--(d2);
-\end{scope}
-\node[labeltext, below=0mm of snap2.south] {$A_{t-k+2},X_{t-k+2}$};
-
-\node[labeltext] (dots) at (5.1,0) {$\cdots$};
-
-\node[input, minimum width=24mm, minimum height=16mm] (snapt) at (7.1,0) {};
-\node[labeltext, below=-1mm of snapt.north] {$G_t$};
-\begin{scope}[shift={(6.55,-.12)}]
-    \node[graphnode, fill=pallight] (a3) at (0,0) {};
-    \node[graphnode] (b3) at (.55,.36) {};
-    \node[graphnode, fill=palmed!45] (c3) at (.55,-.36) {};
-    \node[graphnode] (d3) at (1.15,0) {};
-    \draw[black!55] (a3)--(b3)--(d3)--(c3)--(a3) (b3)--(c3) (a3)--(d3);
-\end{scope}
-\node[labeltext, below=0mm of snapt.south] {$A_t,X_t$};
-
-\node[input, minimum width=31mm] (window) at (10.2,0) {sliding temporal\\graph window};
-\draw[flow] (start) -- (snap1);
-\draw[flow] (snap1) -- (snap2);
-\draw[flow] (snap2) -- (dots);
-\draw[flow] (dots) -- (snapt);
-\draw[flow] (snapt) -- (window);
-
-% -----------------------------------------------------------------------------
-% Stage 2: graph convolution encoder
-% -----------------------------------------------------------------------------
-\node[input] (adj) at (0,-2.35) {adjacency\\$A_t$};
-\node[input] (feat) at (0,-3.95) {node features\\$X_t$};
-\node[gcn] (selfloop) at (3.85,-2.35) {add self-loops\\$A_t+I$};
-\node[gcn, minimum width=38mm] (norm) at (8.05,-2.35) {normalize graph\\$\hat{A}=D^{-1/2}(A_t+I)D^{-1/2}$};
-\node[op] (multAX) at (2.5,-3.95) {$\times$};
-\node[op] (multW) at (4.5,-3.95) {$\times$};
-\node[input] (weight) at (4.5,-5.35) {learned graph\\weights $W_g$};
-\node[gcn, minimum width=34mm] (activation) at (8.05,-3.95) {graph convolution\\$Z_t=\sigma(\hat{A}X_tW_g)$};
-\node[gcn] (embedding) at (13.2,-3.95) {spatial\\embedding $Z_t$};
-
-\draw[flow]
-([xshift=-1pt]window.south)
-|- ([yshift=-25pt]window.south)
--| ([xshift=-5pt]adj.north);
-% -| ([yshift=1pt]selfloop.north);
-
-
-\draw[flow] (adj) -- (selfloop);
-\draw[flow] (selfloop) -- (norm);
-\draw[flow]
-([xshift=-1pt]norm.south)
-|- ([yshift=-5pt]norm.south)
--|([xshift=-2pt]feat.north);
-\draw[aux] (feat) -- (multAX);
-\draw[flow] (multAX) -- node[labeltext, above] {$\hat{A}X_t$} (multW);
-\draw[aux] (weight) -- (multW);
-\draw[flow] (multW) -- (activation);
-\draw[flow] (activation) -- (embedding);
-
-% -----------------------------------------------------------------------------
-% Stage 3: GRU temporal memory block
-% -----------------------------------------------------------------------------
-\node[input] (hprev) at (6.5,-6.95) {previous hidden\\state $H_{t-1}$};
-\node[gru, minimum width=42mm] (update) at (10.1,-5.25) {update gate\\$U_t=\sigma(W_uZ_t+U_uH_{t-1}+b_u)$};
-\node[gru, minimum width=42mm] (reset) at (16.1,-5.25) {reset gate\\$R_t=\sigma(W_rZ_t+U_rH_{t-1}+b_r)$};
-\node[op] (multReset) at (11.0,-6.95) {$\times$};
-\node[gru, minimum width=44mm] (candidate) at (11.0,-9.05) {candidate memory\\$\tilde{H}_t=\tanh(W_hZ_t+U_h(R_t\odot H_{t-1})+b_h)$};
-\node[op] (multNew) at (14.95,-8.05) {$\times$};
-\node[op] (multOld) at (17.65,-6.95) {$\times$};
-\node[plus] (sum) at (17.65,-9.05) {$+$};
-\node[result] (ht) at (17.65,-11.05) {updated hidden\\state $H_t$};
-\node[result, minimum width=32mm] (prediction) at (20.95,-11.05) {prediction head\\$\hat{Y}_{t+1}=f(H_tW_o+b_o)$};
-\node[terminal] (end) at (23.9,-11.05) {End};
-
-\draw[flow] (embedding.south) |- (update.east);
-\draw[flow] (embedding.south) |- (reset.west);
-\draw[aux] (embedding.south) |- (candidate.north);
-\draw[aux] (hprev) |- (update.west);
-% \draw[aux] (hprev) -- (reset.west);
-\draw[aux] (reset) |- (multReset.east);
-\draw[aux] (hprev.east) -- (multReset.west);
-\draw[flow] (multReset) -- node[labeltext, above, xshift=-50pt, yshift=15pt] {$R_t\odot H_{t-1}$} (candidate);
-\draw[flow] (candidate.east) -| node[labeltext, above, xshift=-20pt] {$\tilde{H}_t$} (multNew.south);
-\draw[aux] (update.east) -- ++(.65,0) |- node[labeltext, pos=.25, above, xshift=-8pt, yshift=-30pt] {$U_t$} (multNew.west);
-\draw[aux] ([yshift=7pt]hprev.north) -| node[labeltext, pos=.12, below] {$H_{t-1}$} (multOld.north);
-\draw[aux] (update.east) -- ++(1.1,0) |- node[labeltext, pos=.58, above] {$1-U_t$} (multOld.west);
-\coordinate (aux) at ([xshift=15pt]multNew.east);
-
-\draw[flow]
-(multNew.east)
--- (aux)
-|- node[labeltext, above, xshift=18pt]
-{$U_t\odot\tilde{H}_t$}
-(sum.west);
-
-
-\draw[flow](multOld.south) -| node[labeltext, pos=0.2, above, yshift=4pt, xshift=35pt] {old memory} (sum.north);
-\draw[flow] (sum) -- (ht);
-\draw[flow] (ht) -- (prediction);
-\draw[flow] (prediction) -- (end);
-\draw[feedback] (ht.south) |- ++(-7.6,-.9) -| node[labeltext, pos=.25, below] {recurrent feedback to next time step} (hprev.south);
-
-\node[labeltext, minimum width=65mm] (equation) at (10.8,-9.95)
-    {$H_t=U_t\odot\tilde{H}_t+(1-U_t)\odot H_{t-1}$};
-
-\end{tikzpicture}%
-}
-\caption{T-GCN architecture with GCN spatial aggregation and GRU temporal layers.}
-\label{fig:tgcn-flowchart}
-\end{figure}
-\end{landscape}
 \textbf{Component 1 — Graph Convolution Layers:}
 Two stacked Graph Convolutional Network (GCN) layers are employed to transform node features at each timestep. The first layer projects the input from $d_0 = 7$ to a hidden representation of dimension $d_1 = 64$, while the second layer preserves this dimensionality ($d_2 = 64$). The layer-wise propagation rule follows the first-order Chebyshev approximation \cite{kipf2017semi}:
 \begin{equation}
 \mathbf{H}^{(l+1)} = \sigma\!\left( \mathbf{A}_{\text{norm}} \mathbf{H}^{(l)} \mathbf{W}^{(l)} \right),
 \end{equation}
-where $\mathbf{W}^{(l)} \in \mathbb{R}^{d_l \times d_{l+1}}$ is the trainable weight matrix, and $\sigma(\cdot)$ denotes the ReLU activation function. A dropout rate of 0.2 is applied between GCN layers for regularisation.
+where $\mathbf{W}^{(l)} \in \mathbb{R}^{d_l \times d_{l+1}}$ is the trainable weight matrix, and $\sigma(\cdot)$ denotes the ReLU activation function. A dropout rate of 0.2 is applied between GCN layers for regularization.
 
 \textbf{Component 2 — Temporal Modelling (GRU):}
 The sequence of spatial embeddings $\{\mathbf{h}_1, \ldots, \mathbf{h}_T\}$, where $\mathbf{h}_t \in \mathbb{R}^{64}$, is fed into a two-layer Gated Recurrent Unit (GRU) with hidden dimension 128. The GRU dynamics are defined as:
@@ -485,12 +326,16 @@ The sequence of spatial embeddings $\{\mathbf{h}_1, \ldots, \mathbf{h}_T\}$, whe
 
 where $\mathbf{z}_t$ and $\mathbf{r}_t$ denote the update and reset gates, respectively, and $\odot$ represents element-wise multiplication. The final hidden state $\mathbf{c}_T$ encodes the temporal context of the input sequence.
 
+\input{figures/tgcn-architecture}
+
+
 \textbf{Component 3 — Output Head:}
 A two-layer fully connected network maps the final hidden state $\mathbf{c}_T$ to the predicted output:
 \begin{equation}
 \hat{\mathbf{y}} = \mathrm{FC}(\mathbf{c}_T),
 \end{equation}
 where $\hat{\mathbf{y}} \in \mathbb{R}^{7}$ denotes the predicted feature vector at the next timestep.
+
 
 
 \begin{table}[!htbp]
@@ -870,7 +715,7 @@ the cognitive layer is measured over a strong, honestly-reported reference
 rather than a trivial one.
 
 \section{Sensor Domain Alignment and Fleet Propagation}
-\subsubsection{The Sensor Domain Mismatch Problem}
+\subsection{The Sensor Domain Mismatch Problem}
 A fundamental challenge in connecting environmental IoT sensors to manufacturing digital twins is the domain mismatch between sensor operating ranges and machine operating parameters. The Plalion environmental sensor measures ambient conditions (temperature ≈ 22–33°C, humidity ≈ 20–60\%RH), whereas operational manufacturing machinery exhibits significantly elevated ranges (temperature ≈ 65–85°C, humidity ≈ 35–75\%RH). Directly substituting environmental readings as machine features would produce physically implausible predictions and mislead downstream classification models.
 
 \subsection{SensorAligner: Z-Score Distribution Mapping}
@@ -881,7 +726,7 @@ z_{\text{env}} &= \frac{x_{\text{env}} - \mu_{\text{env}}}{\sigma_{\text{env}}},
 x_{\text{mfg}} &= z_{\text{env}} \cdot \sigma_{\text{mfg}} + \mu_{\text{mfg}},
 \end{align}
 
-where $\mu_{\text{env}}$ and $\sigma_{\text{env}}$ denote the mean and standard deviation computed online from a rolling buffer of the most recent $100$ sensor readings, while $\mu_{\text{mfg}}$ and $\sigma_{\text{mfg}}$ are fixed parameters estimated from historical manufacturing data. The complete online procedure --- rolling-buffer update, robust mean and standard-deviation estimation, and the per-channel z-score remap --- is given in Algorithm~\ref{alg:sensor_aligner} (Appendix~\ref{app:algorithms}).
+where $\mu_{\text{env}}$ and $\sigma_{\text{env}}$ denote the mean and standard deviation computed online from a rolling buffer of the most recent $100$ sensor readings, while $\mu_{\text{mfg}}$ and $\sigma_{\text{mfg}}$ are fixed parameters estimated from historical manufacturing data. The complete online procedure rolling-buffer update, robust mean and standard-deviation estimation, and the per-channel z-score remap is given in Algorithm~\ref{alg:sensor_aligner} (Appendix~\ref{app:algorithms}).
 
 This approach offers several advantages over simpler alternatives: (a) it is parameter-free beyond the target distribution moments; (b) the rolling buffer adapts to sensor drift and seasonal variations; (c) z-score mapping is monotonic and preserves the ordinal relationship between readings; and (d) it avoids the need for a paired calibration dataset, which would be impractical to collect across all operating conditions.
 

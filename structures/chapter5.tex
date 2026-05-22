@@ -46,7 +46,7 @@ engineering and multi-agent systems literature:
 reproducible execution order and predictable data flow, unlike fully autonomous agent
 architectures where emergent behavior may compromise reliability in safety-critical
 manufacturing contexts.
-\textbf{Principle 3: Formal-Informal Complementarity}. LLM-based agents provide flexible, contextaware reasoning (informal intelligence), while the constraints engine and  ptimization solvers provide formal guarantees on safety-critical decisions. This hybrid approach leverages the strengths of both paradigms.
+\textbf{Principle 3: Formal-Informal Complementarity}. LLM-based agents provide flexible, contextaware reasoning (informal intelligence), while the constraints engine and  optimization solvers provide formal guarantees on safety-critical decisions. This hybrid approach leverages the strengths of both paradigms.
 \textbf{Principle 4: Non-Blocking Stream Processing}. The Kafka consumer never blocks on LLM
 inference. The windowing mechanism buffers data while background worker threads execute the
 agent pipeline concurrently, ensuring continuous data ingestion regardless of LLM latency.
@@ -128,7 +128,7 @@ $\mathcal{O}\!\left(\sum_{i} T_{\max}^{(i)}\right)$, where $T_{\max}^{(i)}$ deno
 
 In practice, the overall latency is dominated by large language model (LLM) inference, which typically requires $2$--$8$ seconds per agent. Due to parallel execution within each phase, the total pipeline latency scales approximately as $4 \cdot T_{\text{LLM}}^{\max}$, rather than $9 \cdot T_{\text{LLM}}$ under fully sequential execution. This results in a theoretical speedup of approximately $2.25\times$ achieved through parallelization.
 Agents communicate through a shared context dictionary (blackboard architecture) rather than
-direct message passing. Each agent reads from and writes to this shared state under orchestrator coordination. The communication protocol is defined by the \texttt{AgentMessage} record, whose fields are summarised in Table~\ref{tab:agentmessage}.
+direct message passing. Each agent reads from and writes to this shared state under orchestrator coordination. The communication protocol is defined by the \texttt{AgentMessage} record, whose fields are summarized in Table~\ref{tab:agentmessage}.
 \begin{table}[!htbp]
 \centering
 \caption{Fields of the \texttt{AgentMessage} communication record.}
@@ -158,24 +158,21 @@ machines simultaneously. This section details the Kafka consumer design, windowi
 and non-blocking dispatch strategy.
 
 \subsection{Kafka Consumer with Sliding Window}
-The system consumes messages from a Kafka topic where each message represents a single sensor reading with six dimensions: temperature, humidity, vibration, pressure, energy consumption, and mechanical load. The consumer implements a per-machine windowing
-mechanism that buffers exactly W=10 consecutive readings before dispatching a complete window
-to the agent pipeline. The non-blocking consumer loop --- which polls Kafka, appends each parsed reading to its per-machine buffer, and dispatches a full window to a worker-thread pool without blocking further ingestion --- is given in Algorithm~\ref{alg:stream_processing} (Appendix~\ref{app:algorithms}).
+The system consumes messages from a Kafka topic where each message represents a single sensor reading with six dimensions: temperature, humidity, vibration, pressure, energy consumption, and mechanical load. The consumer implements a per-machine windowing mechanism that buffers exactly W=10 consecutive readings before dispatching a complete window to the agent pipeline. The non-blocking consumer loop  which polls Kafka, appends each parsed reading to its per-machine buffer, and dispatches a full window to a worker-thread pool without blocking further ingestion  is given in Algorithm~\ref{alg:stream_processing} (Appendix~\ref{app:algorithms}).
 
-The window buffer is thread-safe (protected by a threading.Lock) since the Kafka consumer and
-worker threads operate concurrently. The choice of W=10 represents a design trade-off: smaller windows provide faster response but less statistical power for anomaly detection; larger windows improve detection accuracy but increase response latency. With per-minute sensor readings, W=10 provides a 10-minute analysis window, which aligns with industrial maintenance decision-making timescales. 
+The window buffer is thread-safe (protected by a threading.Lock) since the Kafka consumer and worker threads operate concurrently. The choice of W=10 represents a design trade-off: smaller windows provide faster response but less statistical power for anomaly detection; larger windows improve detection accuracy but increase response latency. With per-minute sensor readings, W=10 provides a 10-minute analysis window, which aligns with industrial maintenance decision-making timescales. 
 
 \subsection{Sensor Data Model and Constraint Space}
-Each sensor reading is a 6-dimensional vector $x_t = [T, H, V, P, E, L]$ for temperature, humidity, vibration, pressure, energy, and load at time $t$. The constraint space $\mathcal{C}$ defines operational envelopes per dimension.
+Each sensor reading is a 6-dimensional vector $x_t = [T, H, V, P, E, L]$ for temperature, humidity, vibration, pressure, energy, and load at time $t$. The constraint space $\mathcal{C}$ defines operational envelopes per dimension. Constraints in QASAMAP are organized in two tiers, derived from operational practice and ISO~13374 condition-monitoring guidelines, and version-controlled in the workspace as a single source of truth.
 
-\paragraph{How constraints are defined.}
-Constraints in QASAMAP are organised in two tiers, derived from operational practice and ISO~13374 condition-monitoring guidelines, and version-controlled in the workspace as a single source of truth.
+% \paragraph{How constraints are defined.}
 
-\textbf{Tier~1 --- physical-state constraints} (this section, Table~\ref{tab:sens_con}) are stored as a single source-of-truth configuration consumed by the constraints engine. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate the per-channel reference values $T_{\text{ref}}$, $V_{\text{ref}}$, $H_{\text{ref}}$, $P_{\text{ref}}$, $E_{\text{ref}}$, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The constraints engine consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the configuration values.
 
-\textbf{Tier~2 --- scheduling constraints} (Chapter~6, Constraints (C1)--(C4)) are stored as the scheduling-layer configuration consumed by every solver in the comparative benchmark. \emph{(C1) one-hot} reflects the operational rule that a maintenance task is performed once per planning horizon per machine. \emph{(C2) slot-window capacity} ($C=3$ machines per active maintenance window) is set by the operator-defined crew availability and spare-parts policy. \emph{(C3) risk horizon} ($24$~h) is the operator-mandated deadline for any high-priority machine, derived from the historical mean-time-to-failure of cumulative-damage trajectories that exceed the danger threshold. \emph{(C4) must-schedule} is the closure rule that every machine flagged \texttt{needs\_maintenance} by Tier~1 enters the (C1) decision variables. The four scheduling constraints are not ML-tuned; they are operator-set integers that the scheduling layer of Chapter~6 must satisfy as hard constraints (MILP linear inequalities) or as penalty terms (QUBO), with the same numeric values across all solver paradigms to keep the comparison fair.
+\textbf{Tier~1 physical-state constraints} (this section, Table~\ref{tab:sens_con}) are stored as a single source-of-truth configuration consumed by the constraints engine. They are populated from three sources: (i) machine-vendor datasheets that specify nameplate operating ranges and critical thresholds, (ii) historical sensor distributions from the $100{,}000$-reading reference dataset of Chapter~4 used to calibrate the per-channel reference values $T_{\text{ref}}$, $V_{\text{ref}}$, $H_{\text{ref}}$, $P_{\text{ref}}$, $E_{\text{ref}}$, and (iii) classical reliability literature \cite{mobley_introduction_2002,jardine_review_2006} for trend-and-derivative thresholds, cavitation envelopes, and damage-decay constants. The constraints engine consumes these parameters with no other configuration; substituting a different machine fleet only requires updating the configuration values.
 
-The two-tier organisation gives a clean responsibility split: Tier~1 produces \texttt{(priority\_score, priority\_level, risk\_state, needs\_maintenance, n\_violations, violation\_types)} per machine, and the scheduling layer consumes these along with Tier~2 globals to form the optimisation instance. No solver in Chapter~6 reads sensor readings directly.
+\textbf{Tier~2 scheduling constraints} (Chapter~6, Constraints (C1)--(C4)) are stored as the scheduling-layer configuration consumed by every solver in the comparative benchmark. \emph{(C1) one-hot} reflects the operational rule that a maintenance task is performed once per planning horizon per machine. \emph{(C2) slot-window capacity} ($C=3$ machines per active maintenance window) is set by the operator-defined crew availability and spare-parts policy. \emph{(C3) risk horizon} ($24$~h) is the operator-mandated deadline for any high-priority machine, derived from the historical mean-time-to-failure of cumulative-damage trajectories that exceed the danger threshold. \emph{(C4) must-schedule} is the closure rule that every machine flagged \texttt{needs\_maintenance} by Tier~1 enters the (C1) decision variables. The four scheduling constraints are not ML-tuned; they are operator-set integers that the scheduling layer of Chapter~6 must satisfy as hard constraints (MILP linear inequalities) or as penalty terms (QUBO), with the same numeric values across all solver paradigms to keep the comparison fair.
+
+The two-tier organization gives a clean responsibility split: Tier~1 produces (priority\_score, priority\_level, risk\_state, needs\_maintenance, n\_violations, violation\_types) per machine, and the scheduling layer consumes these along with Tier~2 globals to form the optimization instance. No solver in Chapter~6 reads sensor readings directly.
 \begin{table}[!htbp]
 \centering
 \caption{Sensor constraint space defining operational envelopes for anomaly classification.}
@@ -204,7 +201,7 @@ Energy      & $0$~kWh     & $500$~kWh   & $600$~kWh   & $200$~kWh   & $50$~kWh /
 \FloatBarrier
 
 
-The constraints engine evaluates each reading against this space to produce a machine state vector s = [$is_operating$, $risk_state$, $health_index$, $damage_index$, $anomaly_score$, violations]. This state vector is the primary input to the priority computation algorithm used by Phase 2. The maintenance priority score P for each machine is computed as a weighted linear combination of state indicators:
+The constraints engine evaluates each reading against this space to produce a machine state vector s = [$is operating$, $risk state$, $health index$, $damage index$, $anomaly score$, violations]. This state vector is the primary input to the priority computation algorithm used by Phase 2. The maintenance priority score P for each machine is computed as a weighted linear combination of state indicators:
 
 \begin{verbatim}
 P(m) = 100 * I_shutdown(m) + 50 * I_risk(m) 
@@ -218,8 +215,7 @@ where:
  |V(m)| = number of constraint violations
 \end{verbatim}
 
-Priority levels are assigned categorically: CRITICAL (P >= 100), HIGH (P >= 60), MEDIUM (P
->= 30), and LOW (P < 30). Only machines with P >= 50 or explicit $needs_maintenance$ flags are forwarded to the scheduling solver.
+Priority levels are assigned categorically: CRITICAL (P $>=$ 100), HIGH (P $>=$ 60), MEDIUM (P $>=$ 30), and LOW (P $<$ 30). Only machines with P $>=$ 50 or explicit $needs maintenance$ flags are forwarded to the scheduling solver.
 
 \section{Comparative Analysis: Multi-Agent vs Monolithic Architecture}
 To demonstrate the effectiveness of the proposed multi-agent architecture, we present a systematic comparison against a monolithic (non-agent) baseline. The monolithic system processes the same sensor data using a single LLM call with a combined prompt that encompasses all reasoning tasks (monitoring, diagnosis, planning, and scheduling) in one invocation. Both systems were evaluated on identical input data comprising 500 sensor windows from 50 machines over 10 hours of simulated operation. The evaluation metrics include: decision quality (measured by scheduling cost optimality gap against MILP), processing throughput (windows processed per minute), fault detection rate (F1 score for known anomaly patterns), and explanation quality (assessed by domain experts on a 1-5 Likert scale). The monolithic baseline uses a single DeepSeek-v4-Pro call with a comprehensive prompt containing all constraints, while the multiagent system distributes reasoning across nine specialized agents with dedicated prompts.
@@ -293,7 +289,7 @@ Average damage index                 & 0.438 & moderate cumulative damage accumu
 
 \subsection{Per-Machine Agent Output}
 \label{sec:agent_output_example}
-The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Pattern Learning $\to$ Diagnosis $\to$ Planning) for each machine in the streaming run is a structured per-machine state record consumed by the Phase~3 Action agent and forwarded to the scheduling layer. Table~\ref{tab:agent_state_example} reproduces the record for \texttt{machine\_002} from the 50-machine streaming run; the complete fleet output is the list of $45$ such records that defines the scheduling-layer input.
+The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Pattern Learning $\to$ Diagnosis $\to$ Planning) for each machine in the streaming run is a structured per-machine state record consumed by the Phase~3 Action agent and forwarded to the scheduling layer. Table~\ref{tab:agent_state_example} reproduces the record for machine\_002 from the 50-machine streaming run; the complete fleet output is the list of $45$ such records that defines the scheduling-layer input.
 
 \begin{table}[!htbp]
 \centering
@@ -321,4 +317,4 @@ The artefact emitted by the Phase~1--2 agents (Monitoring + Correlation + Patter
 \end{tabular}
 \end{table}
 
-The fields trace back to specific agent outputs: \texttt{priority\_score} and \texttt{priority\_level} are emitted by the Planning agent from the linear weighting formula of 5.3.2; \texttt{health\_index}, \texttt{damage\_index}, \texttt{anomaly\_score}, \texttt{is\_operating}, and \texttt{risk\_state} are derived by the Monitoring agent through the constraints engine of 5.3.2; \texttt{n\_violations} and \texttt{violation\_types} are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; \texttt{needs\_maintenance} is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.
+The fields trace back to specific agent outputs: priority\_score and priority\_level are emitted by the Planning agent from the linear weighting formula of 5.3.2; health\_index, damage\_index, anomaly\_score, is\_operating, and risk\_state are derived by the Monitoring agent through the constraints engine of 5.3.2; n\_violations and violation\_types are the union of envelope, trend, cavitation, and cross-coupled violations detected during the $W=10$-reading window; needs\_maintenance is the Boolean closure rule that gates entry into the scheduling decision variables. The Reporting agent of Phase~4 wraps the list of such records with the Action agent's selected schedule to produce the final structured artefact for downstream consumption.

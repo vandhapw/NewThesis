@@ -1,0 +1,67 @@
+\begin{landscape}
+\centering
+
+\begin{minipage}{\linewidth}
+\centering
+\captionof{table}{IBM Quantum hardware scaling versus fleet size $N$.}
+\label{tab:ibm_hw}
+{\scriptsize
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{
+>{\centering\arraybackslash}m{1.1cm}
+>{\centering\arraybackslash}m{1.4cm}
+>{\centering\arraybackslash}m{2.0cm}
+>{\centering\arraybackslash}m{1.7cm}
+>{\centering\arraybackslash}m{1.7cm}
+>{\centering\arraybackslash}m{2.1cm}
+>{\centering\arraybackslash}m{2.6cm}
+>{\centering\arraybackslash}m{3.2cm}
+}
+\toprule
+\textbf{N} & \textbf{Qubits} & \textbf{Depth (transpiled)} & \textbf{CZ gates} & \textbf{SX gates} & \textbf{Feasibility rate} & \textbf{Best quantum cost} & \textbf{MILP cost} \\
+\midrule
+3  & 12  &       801 &     644 &  1{,}244 & \textbf{10.96\%} & \textbf{300.00} & 300.00 \\
+5  & 20  &  1{,}226 & 1{,}935 & 3{,}651 & \textbf{0.24\%}  & \textbf{1{,}186.02} & 1{,}170.7~(\emph{infeas.}) \\
+7  & 28  &  3{,}120 & 4{,}063 & 7{,}547 & \textbf{0.02\%}  & \textbf{3{,}069.07} & 2{,}404.95~(\emph{infeas.}) \\
+9  & 32  &  2{,}958 & 5{,}390 & 10{,}334 & \textbf{0.00\%}  & \emph{none} & 1{,}206.95~(\emph{infeas.}) \\
+10 & 50  & $\sim$3{,}500 & $\sim$7{,}000  & $\sim$13{,}000 & --- & --- & 3{,}694.44~(\emph{infeas.}) \\
+15 & 60  & $\sim$13{,}000 & $\sim$7{,}500  & --- & $<1\%$         & noise-dominated    & 1{,}500.00 \\
+20 & 80  & $\sim$24{,}000 & $\sim$14{,}000 & --- & $\sim 0\%$     & noise-dominated    & 2{,}000.00 \\
+25 & 100 & $\sim$38{,}000 & $\sim$22{,}000 & --- & $\sim 0\%$     & pure noise         & 2{,}500.00 \\
+30 & 120 & $\sim$55{,}000 & $\sim$33{,}000 & --- & $\sim 0\%$     & pure noise         & 3{,}000.00 \\
+\bottomrule
+\end{tabular}}
+\end{minipage}
+
+\vspace{1.0em}
+
+\begin{minipage}{\linewidth}
+\centering
+\captionof{table}{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
+\label{tab:ext_str}
+{\scriptsize
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{l r c c r r c c r r c c r}
+\toprule
+\multirow{2}{*}{\textbf{Solver}}
+& \multicolumn{4}{c}{$N=7$ ($n_{\text{bits}}=28$, all CRITICAL)}
+& \multicolumn{4}{c}{$N=9$ ($n_{\text{bits}}=32$, all CRITICAL)}
+& \multicolumn{4}{c}{$N=10$ ($n_{\text{bits}}=50$, all CRITICAL)} \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
+& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms} \\
+\midrule
+MILP/CBC      &  2{,}404.95 & no & --- & 27   & 1{,}206.95 & no & --- & 26    & 3{,}694.44 & no & --- & 26 \\
+QIEA          &  4{,}800.38 & no & --- & 84   & 5{,}570.00 & no & --- & 96    & 4{,}444.14 & no & --- & 147 \\
+SA            &  5{,}192.95 & no & 8   & 57   & 6{,}289.25 & no & 10  & 58    & 10{,}493.56 & no & 11  & 71 \\
+GA            &  4{,}295.42 & no & 8   & 669  & 5{,}941.48 & no & 10  & 708   & 8{,}448.16 & no & 11  & 740 \\
+TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 8{,}448.16 & no & 11  & 225 \\
+\textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}}
+\end{minipage}
+
+\end{landscape}

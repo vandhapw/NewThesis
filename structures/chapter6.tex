@@ -1,5 +1,5 @@
 \section{Background}
-Maintenance scheduling is a combinatorial optimisation problem with $T^N$ assignments for $N$ machines and $T$ time slots, subject to capacity and assignment constraints. MILP guarantees optimality but scales poorly on large instances. This chapter benchmarks three paradigms against the classical baseline: quantum-inspired heuristics on classical hardware, gate-based QAOA on IBM Quantum hardware, and exact MILP/CBC for reference.
+Maintenance scheduling is a combinatorial optimization problem with $T^N$ assignments for $N$ machines and $T$ time slots, subject to capacity and assignment constraints. MILP guarantees optimality but scales poorly on large instances. This chapter benchmarks three paradigms against the classical baseline: quantum-inspired heuristics on classical hardware, gate-based QAOA on IBM Quantum hardware, and exact MILP/CBC for reference.
 
 \section{Problem Formulation}
 \subsection{Maintenance Scheduling as Combinatorial Optimization}
@@ -10,7 +10,7 @@ Each of $N$ machines is assigned to one of $T$ discrete slots within a 72-hour h
 \left[ C_{\text{maint}}
 + C_{\text{risk}} \cdot \frac{p_i}{100} \cdot \frac{t_i}{H} \right],
 \end{equation}
-with $C_{\text{maint}}=100$, $C_{\text{risk}}=1000$. A machine with $p_i=90$ at $t_i=36$ incurs $100 + 1000 \cdot 0.9 \cdot 36/72 = 550$ versus only $100$ at $t_i=0$, so the formulation penalises delayed scheduling of high-priority machines.
+with $C_{\text{maint}}=100$, $C_{\text{risk}}=1000$. A machine with $p_i=90$ at $t_i=36$ incurs $100 + 1000 \cdot 0.9 \cdot 36/72 = 550$ versus only $100$ at $t_i=0$, so the formulation penalizes delayed scheduling of high-priority machines.
 
 \subsection{Constraints}
 Two hard constraints govern feasibility. \textbf{(1) One-hot:} each machine occupies exactly one slot,
@@ -291,7 +291,7 @@ The critical insight in Algorithm \ref{alg:qaoa_xy}  is that the XY ring mixer (
 The full hardware execution pipeline is given in Algorithm~\ref{alg:qaoa_hardware} (Appendix~\ref{app:algorithms}).
 
 Algorithm~\ref{alg:qaoa_hardware} addresses the key practical challenge of QAOA on NISQ hardware: the variational optimization loop is prohibitively expensive when executed on-device. The parameter-transfer strategy optimizes the angles on a classically simulable sub-problem, then applies them to the full-size circuit. This assumes concentration of QAOA parameters --- that optimal angles for small instances generalize to larger instances of the same problem class \cite{Brandao2018}. The transpilation step maps the abstract circuit to the hardware's native gate set and qubit connectivity, introducing SWAP gates that increase circuit depth.
-Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction. The measured cost expectation $\langle H_C\rangle$ drives a classical COBYLA optimiser with multiple restarts, which updates the variational angles $(\gamma_\ell,\beta_\ell)$ and closes the hybrid quantum--classical loop.
+Figure~\ref{fig:qaoa-circuit} illustrates the circuit architecture for a minimal instance ($N=2$ machines, $T=4$ time options), showing the initial $X$-gate preparation, the alternating problem unitary $U_C(\gamma_\ell)$ (single-qubit $R_Z$ and two-qubit $ZZ$ couplings) and XY ring-mixer $U_M(\beta_\ell)$, and the final measurement. Each machine's four qubits form an independent block within the mixer, so the one-hot feasibility of the assignment is preserved by construction. The measured cost expectation $\langle H_C\rangle$ drives a classical COBYLA optimizer with multiple restarts, which updates the variational angles $(\gamma_\ell,\beta_\ell)$ and closes the hybrid quantum--classical loop.
 
 \begin{figure}[!htbp]
 \centering
@@ -435,74 +435,6 @@ Table~\ref{tab:ibm_hw} summarises the QAOA scaling study executed on the IBM Her
 
 The bold row $N=3$ in Table~\ref{tab:ibm_hw} is a measured result on \texttt{ibm\_fez} (Heron~r2, 156 qubits) with $p=2$ QAOA layers and $4{,}096$ shots; the input problem is the constraint-engine output of the streaming pipeline of Section~\ref{sec:complex_streaming} (3 machines, all flagged \texttt{needs\_maintenance}, all CRITICAL/HIGH priority, derived from real-time digital-twin sensor readings rather than synthetic priorities). The 10.96\% feasibility rate (446 of 4{,}096 measurement shots respect both the one-hot and capacity constraints) is sufficient for the post-selection step (Algorithm~\ref{alg:qaoa_hardware}, lines 47--56) to recover the lowest-cost feasible schedule, and that lowest-cost feasible schedule \emph{matches the MILP/CBC optimum exactly} at cost $= 300.00$. This is the strongest empirical evidence in the thesis for the practical viability of QAOA on current NISQ hardware: at the scale where the XY-ring-mixer ansatz (Algorithm~\ref{alg:qaoa_xy}) preserves one-hot states by construction and the transpiled depth of 801 with 644 CZ gates remains within the device's coherence envelope, the gate-based quantum path returns the optimal solution to a real-world streaming-derived instance.
 
-\begin{landscape}
-\centering
-
-\begin{minipage}{\linewidth}
-\centering
-\captionof{table}{IBM Quantum hardware scaling versus fleet size $N$.}
-\label{tab:ibm_hw}
-{\scriptsize
-\renewcommand{\arraystretch}{1.0}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{
->{\centering\arraybackslash}m{1.1cm}
->{\centering\arraybackslash}m{1.4cm}
->{\centering\arraybackslash}m{2.0cm}
->{\centering\arraybackslash}m{1.7cm}
->{\centering\arraybackslash}m{1.7cm}
->{\centering\arraybackslash}m{2.1cm}
->{\centering\arraybackslash}m{2.6cm}
->{\centering\arraybackslash}m{3.2cm}
-}
-\toprule
-\textbf{N} & \textbf{Qubits} & \textbf{Depth (transpiled)} & \textbf{CZ gates} & \textbf{SX gates} & \textbf{Feasibility rate} & \textbf{Best quantum cost} & \textbf{MILP cost} \\
-\midrule
-3  & 12  &       801 &     644 &  1{,}244 & \textbf{10.96\%} & \textbf{300.00} & 300.00 \\
-5  & 20  &  1{,}226 & 1{,}935 & 3{,}651 & \textbf{0.24\%}  & \textbf{1{,}186.02} & 1{,}170.7~(\emph{infeas.}) \\
-7  & 28  &  3{,}120 & 4{,}063 & 7{,}547 & \textbf{0.02\%}  & \textbf{3{,}069.07} & 2{,}404.95~(\emph{infeas.}) \\
-9  & 32  &  2{,}958 & 5{,}390 & 10{,}334 & \textbf{0.00\%}  & \emph{none} & 1{,}206.95~(\emph{infeas.}) \\
-10 & 50  & $\sim$3{,}500 & $\sim$7{,}000  & $\sim$13{,}000 & --- & --- & 3{,}694.44~(\emph{infeas.}) \\
-15 & 60  & $\sim$13{,}000 & $\sim$7{,}500  & --- & $<1\%$         & noise-dominated    & 1{,}500.00 \\
-20 & 80  & $\sim$24{,}000 & $\sim$14{,}000 & --- & $\sim 0\%$     & noise-dominated    & 2{,}000.00 \\
-25 & 100 & $\sim$38{,}000 & $\sim$22{,}000 & --- & $\sim 0\%$     & pure noise         & 2{,}500.00 \\
-30 & 120 & $\sim$55{,}000 & $\sim$33{,}000 & --- & $\sim 0\%$     & pure noise         & 3{,}000.00 \\
-\bottomrule
-\end{tabular}}
-\end{minipage}
-
-\vspace{1.0em}
-
-\begin{minipage}{\linewidth}
-\centering
-\captionof{table}{Extended streaming benchmark at $N=7,9,10$ on full complex-constraint set (C1--C4).}
-\label{tab:ext_str}
-{\scriptsize
-\renewcommand{\arraystretch}{1.0}
-\setlength{\tabcolsep}{8pt}
-\begin{tabular}{l r c c r r c c r r c c r}
-\toprule
-\multirow{2}{*}{\textbf{Solver}}
-& \multicolumn{4}{c}{$N=7$ ($n_{\text{bits}}=28$, all CRITICAL)}
-& \multicolumn{4}{c}{$N=9$ ($n_{\text{bits}}=32$, all CRITICAL)}
-& \multicolumn{4}{c}{$N=10$ ($n_{\text{bits}}=50$, all CRITICAL)} \\
-\cmidrule(lr){2-5} \cmidrule(lr){6-9} \cmidrule(lr){10-13}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms}
-& \textbf{Cost} & \textbf{Feas.} & \textbf{Viol.} & \textbf{ms} \\
-\midrule
-MILP/CBC      &  2{,}404.95 & no & --- & 27   & 1{,}206.95 & no & --- & 26    & 3{,}694.44 & no & --- & 26 \\
-QIEA          &  4{,}800.38 & no & --- & 84   & 5{,}570.00 & no & --- & 96    & 4{,}444.14 & no & --- & 147 \\
-SA            &  5{,}192.95 & no & 8   & 57   & 6{,}289.25 & no & 10  & 58    & 10{,}493.56 & no & 11  & 71 \\
-GA            &  4{,}295.42 & no & 8   & 669  & 5{,}941.48 & no & 10  & 708   & 8{,}448.16 & no & 11  & 740 \\
-TS            &  4{,}295.42 & no & 8   & 67   & 5{,}224.77 & no & 10  & 88    & 8{,}448.16 & no & 11  & 225 \\
-\textbf{QAOA-XY @ ibm\_fez} & \textbf{3{,}069.07} & post-sel.\ feas. & \textbf{2} & 64{,}700 & \emph{no feas.\ shot} & no & --- & 18{,}800  & --- & --- & --- & --- \\
-\bottomrule
-\end{tabular}}
-\end{minipage}
-
-\end{landscape}
-\FloatBarrier
 
 The remaining rows $N=5$--$30$ are simulator-projected estimates from the noise-scaling model below; their measured replication is left to follow-up work because the hardware queue and per-instance shot budget grow rapidly beyond $N=4$. The noise analysis reveals exponential fidelity decay with circuit depth:
 \begin{align}
@@ -510,7 +442,7 @@ F_{\text{est}}(N=3)  &= (1 - 0.004)^{644}   \approx 0.075  \quad (7.5\%) \\
 F_{\text{est}}(N=5)  &= (1 - 0.004)^{800}   \approx 0.041  \quad (4.1\%) \\
 F_{\text{est}}(N=10) &= (1 - 0.004)^{3{,}200}  \approx 2.7 \times 10^{-6} \quad (\text{negligible}).
 \end{align}
-The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity estimate because the XY-ring mixer keeps the search confined to one-hot subspace whose dimension is much smaller than the full $2^{12}$ Hilbert space, so the post-selection has a structural reservoir of feasible measurement outcomes to draw from. This establishes $N=3$--$5$ machines as the current empirically-validated regime for QAOA maintenance scheduling on IBM Heron hardware with $p=2$ layers and confirms $N=5$--$10$ as the simulator-projected noise-scaling frontier with $p=4$ layers. Figure~\ref{fig:noise-frontier} visualises both the circuit complexity growth and the resulting fidelity decay.
+The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity estimate because the XY-ring mixer keeps the search confined to one-hot subspace whose dimension is much smaller than the full $2^{12}$ Hilbert space, so the post-selection has a structural reservoir of feasible measurement outcomes to draw from. This establishes $N=3$--$5$ machines as the current empirically-validated regime for QAOA maintenance scheduling on IBM Heron hardware with $p=2$ layers and confirms $N=5$--$10$ as the simulator-projected noise-scaling frontier with $p=4$ layers. Figure~\ref{fig:noise-frontier} visualizes both the circuit complexity growth and the resulting fidelity decay.
 
 \begin{figure}[!htbp]
     \centering
@@ -529,10 +461,15 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 \end{figure}
 \FloatBarrier
 
+
+\input{tables/ibm-extended}
+
+\FloatBarrier
+
 \section{Analysis and Discussion}
 
 \subsection{Streaming Real-Time Data: Impact on Scheduling Complexity}
-End-to-end streaming sensor data through the full multi-agent pipeline produces priorities qualitatively different from synthetic uniform $[20,100]$ draws. The constraints engine accumulates violations, damage, and anomaly scores over multiple windows, yielding the priority distributions reported below. Table~\ref{tab:str_sch} summarises results across $N=3$--$15$ machines, each fed $50$ readings ($5$ windows $\times$ $10$ readings).
+End-to-end streaming sensor data through the full multi-agent pipeline produces priorities qualitatively different from synthetic uniform $[20,100]$ draws. The constraints engine accumulates violations, damage, and anomaly scores over multiple windows, yielding the priority distributions reported below. Table~\ref{tab:str_sch} summaries results across $N=3$--$15$ machines, each fed $50$ readings ($5$ windows $\times$ $10$ readings).
 
 \begin{table}[!htbp]
 \centering
@@ -624,15 +561,16 @@ For the basic-constraint formulation, exact MILP/CBC dominates QIEA, SQA, and QA
 \subsection{Classical Metaheuristic Baselines: Simulated Annealing, Genetic Algorithm, Tabu Search}
 \label{sec:metaheuristics}
 
-The QUBO-based heuristics QIEA and SQA operate by translating constraints into penalty terms, which produces the penalty-dominated landscapes that defeat them at $N \geq 10$ on the streaming benchmark of Table~\ref{tab:str_sch}. Three well-known classical metaheuristics --- Simulated Annealing (SA), Genetic Algorithm (GA), and Tabu Search (TS) --- can be applied directly on the assignment representation $\mathbf{a} = (a_1, \ldots, a_N) \in \{0,\ldots,T-1\}^N$ instead of the binary $\{0,1\}^{NT}$ representation, so that the one-hot constraint (C1) is preserved \emph{by construction} and only the slot-window capacity (C2) and risk horizon (C3) need to be enforced via a feasibility-aware objective. To rule them out as a hidden alternative to QIEA/SQA before claiming a quantum advantage, all three were implemented with the lexicographic score
+The QUBO-based heuristics QIEA and SQA operate by translating constraints into penalty terms, which produces the penalty-dominated landscapes that defeat them at $N \geq 10$ on the streaming benchmark of Table~\ref{tab:str_sch}. Three well-known classical metaheuristics Simulated Annealing (SA), Genetic Algorithm (GA), and Tabu Search (TS) can be applied directly on the assignment representation $\mathbf{a} = (a_1, \ldots, a_N) \in \{0,\ldots,T-1\}^N$ instead of the binary $\{0,1\}^{NT}$ representation, so that the one-hot constraint (C1) is preserved \emph{by construction} and only the slot-window capacity (C2) and risk horizon (C3) need to be enforced via a feasibility-aware objective. To rule them out as a hidden alternative to QIEA/SQA before claiming a quantum advantage, all three were implemented with the lexicographic score
 \begin{equation}
 \mathcal{L}(\mathbf{a}) = M_{\text{big}} \cdot V(\mathbf{a}) + \mathcal{C}(\mathbf{a}),
 \end{equation}
 where $V(\mathbf{a})$ is the total count of (C2)$+$(C3) violations and $\mathcal{C}(\mathbf{a})$ is the pure scheduling cost; with $M_{\text{big}} \gg \max \mathcal{C}$, any feasible candidate is strictly preferred to any infeasible one. SA uses single-machine slot moves with a geometric temperature schedule from $T = 200$ to $T = 0.1$ over $4{,}000$ iterations, GA uses tournament selection (size $3$), per-machine uniform crossover and mutation rate $p = 0.05$ over $300$ generations of $40$ individuals, and TS uses best-improvement search over the full single-move neighbourhood with a tabu tenure of $8$ iterations.
 
-\textbf{Suitability for the multi-agent context.} All three are general-purpose combinatorial optimisers whose move operators we restricted to the assignment representation, eliminating the QUBO penalty translation that hurts QIEA/SQA. Their per-instance solve time at the streaming-derived sizes ($N \leq 30$) is in the tens-to-hundreds of milliseconds, well inside the 60-s Kafka cycle. They are therefore appropriate baselines against which the quantum and quantum-inspired methods must compete --- they share the same input representation as the multi-agent constraints engine and respect the same real-time budget.
+% \textbf{Suitability for the multi-agent context.} All three are general-purpose combinatorial optimisers whose move operators we restricted to the assignment representation, eliminating the QUBO penalty translation that hurts QIEA/SQA. Their per-instance solve time at the streaming-derived sizes ($N \leq 30$) is in the tens-to-hundreds of milliseconds, well inside the 60-s Kafka cycle. They are therefore appropriate baselines against which the quantum and quantum-inspired methods must compete --- they share the same input representation as the multi-agent constraints engine and respect the same real-time budget.
 
-\textbf{Empirical result.} Table~\ref{tab:cs_n45} reports the head-to-head outcome on the $N=4$ and $N=5$ streaming-derived instances under the full constraint set (C1)--(C4). At $N=4$ the problem is borderline feasible (MILP returns the proven optimum at cost $1{,}336.67$); at $N=5$, with risk-horizon $\rho = 1$ slot and capacity $C = 3$, the problem becomes \emph{structurally infeasible} (5 CRITICAL machines all need slot 0, only 3 fit), and the question shifts from ``what is the cheapest schedule'' to ``which solver returns the most operationally usable schedule given the infeasibility''.
+\textbf{Empirical result.} Table~\ref{tab:cs_n45} reports the head-to-head outcome on the $N=4$ and $N=5$ streaming-derived instances under the full constraint set (C1)--(C4). At $N=4$ the problem is borderline feasible (MILP returns the proven optimum at cost $1{,}336.67$); at $N=5$, with risk-horizon $\rho = 1$ slot and capacity $C = 3$, the problem becomes \emph{structurally infeasible} (5 CRITICAL machines all need slot 0, only 3 fit).
+% and the question shifts from ``what is the cheapest schedule'' to ``which solver returns the most operationally usable schedule given the infeasibility''.
 
 \begin{table}[!htbp]
 \centering

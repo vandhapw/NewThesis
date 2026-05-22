@@ -1,0 +1,160 @@
+\begin{landscape}
+\begin{figure}[ht]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+    font=\sffamily\footnotesize,
+    >=Latex,
+    stage/.style={draw=#1!60, fill=#1!5, rounded corners=7pt, very thick, inner sep=6pt},
+    box/.style={draw=black!55, fill=white, rounded corners=3pt, align=center, minimum height=10mm, minimum width=24mm},
+    input/.style={box, draw=paldark!75, fill=pallight!30},
+    gcn/.style={box, draw=palmed!85!black, fill=palmed!18},
+    gru/.style={box, draw=paldark, fill=paldark!12},
+    result/.style={box, draw=palmed!70!black, fill=pallight!55},
+    op/.style={circle, draw=paldark, fill=palmed!40, very thick, minimum size=8mm, inner sep=0pt, font=\bfseries},
+    plus/.style={circle, draw=palmed!80!black, fill=pallight!70, very thick, minimum size=8mm, inner sep=0pt, font=\bfseries},
+    graphnode/.style={circle, draw=black!60, fill=white, minimum size=2.5mm, inner sep=0pt},
+    title/.style={font=\sffamily\bfseries\large, align=center},
+    labeltext/.style={font=\sffamily\scriptsize, align=center, text=black!70},
+    flow/.style={->, very thick, draw=paldark},
+    aux/.style={->, thick, draw=palmed!88!black},
+    feedback/.style={->, thick, dashed, draw=palmed!75!black},
+    terminal/.style={draw=paldark, fill=paldark, text=white, rounded corners=10pt, very thick, align=center, minimum height=8mm, minimum width=15mm, font=\sffamily\footnotesize\bfseries}
+]
+
+% -----------------------------------------------------------------------------
+% Header and legend
+% -----------------------------------------------------------------------------
+% \node[title] (heading) at (8.8,1.25) {Temporal Graph Convolutional Network (T-GCN) Detailed Workflow};
+% \node[labeltext, below=1mm of heading] (legend) {Legend: $\otimes$ or $\times$ = multiplication / element-wise gate product, $+$ = hidden-state fusion, dashed arrow = recurrent memory};
+
+% -----------------------------------------------------------------------------
+% Stage 1: temporal graph snapshots
+% -----------------------------------------------------------------------------
+\node[terminal] (start) at (-2.6,0) {Start};
+\node[input, minimum width=24mm, minimum height=16mm] (snap1) at (0,0) {};
+\node[labeltext, below=-1mm of snap1.north] {$G_{t-k+1}$};
+\begin{scope}[shift={(-.55,-.12)}]
+    \node[graphnode] (a1) at (0,0) {};
+    \node[graphnode, fill=pallight] (b1) at (.55,.36) {};
+    \node[graphnode] (c1) at (.55,-.36) {};
+    \node[graphnode, fill=palmed!45] (d1) at (1.15,0) {};
+    \draw[black!55] (a1)--(b1)--(d1)--(c1)--(a1) (b1)--(c1);
+\end{scope}
+\node[labeltext, below=0mm of snap1.south] {$A_{t-k+1},X_{t-k+1}$};
+
+\node[input, minimum width=24mm, minimum height=16mm] (snap2) at (3.0,0) {};
+\node[labeltext, below=-1mm of snap2.north] {$G_{t-k+2}$};
+\begin{scope}[shift={(2.45,-.12)}]
+    \node[graphnode] (a2) at (0,0) {};
+    \node[graphnode] (b2) at (.55,.36) {};
+    \node[graphnode, fill=pallight] (c2) at (.55,-.36) {};
+    \node[graphnode, fill=palmed!45] (d2) at (1.15,0) {};
+    \draw[black!55] (a2)--(b2)--(d2)--(c2)--(a2) (a2)--(d2);
+\end{scope}
+\node[labeltext, below=0mm of snap2.south] {$A_{t-k+2},X_{t-k+2}$};
+
+\node[labeltext] (dots) at (5.1,0) {$\cdots$};
+
+\node[input, minimum width=24mm, minimum height=16mm] (snapt) at (7.1,0) {};
+\node[labeltext, below=-1mm of snapt.north] {$G_t$};
+\begin{scope}[shift={(6.55,-.12)}]
+    \node[graphnode, fill=pallight] (a3) at (0,0) {};
+    \node[graphnode] (b3) at (.55,.36) {};
+    \node[graphnode, fill=palmed!45] (c3) at (.55,-.36) {};
+    \node[graphnode] (d3) at (1.15,0) {};
+    \draw[black!55] (a3)--(b3)--(d3)--(c3)--(a3) (b3)--(c3) (a3)--(d3);
+\end{scope}
+\node[labeltext, below=0mm of snapt.south] {$A_t,X_t$};
+
+\node[input, minimum width=31mm] (window) at (10.2,0) {sliding temporal\\graph window};
+\draw[flow] (start) -- (snap1);
+\draw[flow] (snap1) -- (snap2);
+\draw[flow] (snap2) -- (dots);
+\draw[flow] (dots) -- (snapt);
+\draw[flow] (snapt) -- (window);
+
+% -----------------------------------------------------------------------------
+% Stage 2: graph convolution encoder
+% -----------------------------------------------------------------------------
+\node[input] (adj) at (0,-2.35) {adjacency\\$A_t$};
+\node[input] (feat) at (0,-3.95) {node features\\$X_t$};
+\node[gcn] (selfloop) at (3.85,-2.35) {add self-loops\\$A_t+I$};
+\node[gcn, minimum width=38mm] (norm) at (8.05,-2.35) {normalize graph\\$\hat{A}=D^{-1/2}(A_t+I)D^{-1/2}$};
+\node[op] (multAX) at (2.5,-3.95) {$\times$};
+\node[op] (multW) at (4.5,-3.95) {$\times$};
+\node[input] (weight) at (4.5,-5.35) {learned graph\\weights $W_g$};
+\node[gcn, minimum width=34mm] (activation) at (8.05,-3.95) {graph convolution\\$Z_t=\sigma(\hat{A}X_tW_g)$};
+\node[gcn] (embedding) at (13.2,-3.95) {spatial\\embedding $Z_t$};
+
+\draw[flow]
+([xshift=-1pt]window.south)
+|- ([yshift=-25pt]window.south)
+-| ([xshift=-5pt]adj.north);
+% -| ([yshift=1pt]selfloop.north);
+
+
+\draw[flow] (adj) -- (selfloop);
+\draw[flow] (selfloop) -- (norm);
+\draw[flow]
+([xshift=-1pt]norm.south)
+|- ([yshift=-5pt]norm.south)
+-|([xshift=-2pt]feat.north);
+\draw[aux] (feat) -- (multAX);
+\draw[flow] (multAX) -- node[labeltext, above] {$\hat{A}X_t$} (multW);
+\draw[aux] (weight) -- (multW);
+\draw[flow] (multW) -- (activation);
+\draw[flow] (activation) -- (embedding);
+
+% -----------------------------------------------------------------------------
+% Stage 3: GRU temporal memory block
+% -----------------------------------------------------------------------------
+\node[input] (hprev) at (6.5,-6.95) {previous hidden\\state $H_{t-1}$};
+\node[gru, minimum width=42mm] (update) at (10.1,-5.25) {update gate\\$U_t=\sigma(W_uZ_t+U_uH_{t-1}+b_u)$};
+\node[gru, minimum width=42mm] (reset) at (16.1,-5.25) {reset gate\\$R_t=\sigma(W_rZ_t+U_rH_{t-1}+b_r)$};
+\node[op] (multReset) at (11.0,-6.95) {$\times$};
+\node[gru, minimum width=44mm] (candidate) at (11.0,-9.05) {candidate memory\\$\tilde{H}_t=\tanh(W_hZ_t+U_h(R_t\odot H_{t-1})+b_h)$};
+\node[op] (multNew) at (14.95,-8.05) {$\times$};
+\node[op] (multOld) at (17.65,-6.95) {$\times$};
+\node[plus] (sum) at (17.65,-9.05) {$+$};
+\node[result] (ht) at (17.65,-11.05) {updated hidden\\state $H_t$};
+\node[result, minimum width=32mm] (prediction) at (20.95,-11.05) {prediction head\\$\hat{Y}_{t+1}=f(H_tW_o+b_o)$};
+\node[terminal] (end) at (23.9,-11.05) {End};
+
+\draw[flow] (embedding.south) |- (update.east);
+\draw[flow] (embedding.south) |- (reset.west);
+\draw[aux] (embedding.south) |- (candidate.north);
+\draw[aux] (hprev) |- (update.west);
+% \draw[aux] (hprev) -- (reset.west);
+\draw[aux] (reset) |- (multReset.east);
+\draw[aux] (hprev.east) -- (multReset.west);
+\draw[flow] (multReset) -- node[labeltext, above, xshift=-50pt, yshift=15pt] {$R_t\odot H_{t-1}$} (candidate);
+\draw[flow] (candidate.east) -| node[labeltext, above, xshift=-20pt] {$\tilde{H}_t$} (multNew.south);
+\draw[aux] (update.east) -- ++(.65,0) |- node[labeltext, pos=.25, above, xshift=-8pt, yshift=-30pt] {$U_t$} (multNew.west);
+\draw[aux] ([yshift=7pt]hprev.north) -| node[labeltext, pos=.12, below] {$H_{t-1}$} (multOld.north);
+\draw[aux] (update.east) -- ++(1.1,0) |- node[labeltext, pos=.58, above] {$1-U_t$} (multOld.west);
+\coordinate (aux) at ([xshift=15pt]multNew.east);
+
+\draw[flow]
+(multNew.east)
+-- (aux)
+|- node[labeltext, above, xshift=18pt]
+{$U_t\odot\tilde{H}_t$}
+(sum.west);
+
+
+\draw[flow](multOld.south) -| node[labeltext, pos=0.2, above, yshift=4pt, xshift=35pt] {old memory} (sum.north);
+\draw[flow] (sum) -- (ht);
+\draw[flow] (ht) -- (prediction);
+\draw[flow] (prediction) -- (end);
+\draw[feedback] (ht.south) |- ++(-7.6,-.9) -| node[labeltext, pos=.25, below] {recurrent feedback to next time step} (hprev.south);
+
+\node[labeltext, minimum width=65mm] (equation) at (10.8,-9.95)
+    {$H_t=U_t\odot\tilde{H}_t+(1-U_t)\odot H_{t-1}$};
+
+\end{tikzpicture}%
+}
+\caption{T-GCN architecture with GCN spatial aggregation and GRU temporal layers.}
+\label{fig:tgcn-flowchart}
+\end{figure}
+\end{landscape}
