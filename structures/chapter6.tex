@@ -461,6 +461,17 @@ The measured 10.96\% feasibility rate at $N=3$ exceeds the 7.5\% raw-fidelity es
 \end{figure}
 \FloatBarrier
 
+Panel~(\subref{fig:noise-frontier-a}) plots the transpiled circuit depth and the
+two-qubit CZ-gate count against fleet size $N$ on a logarithmic scale; both grow
+super-linearly and cross the device coherence budget --- the dotted $T_2$ limit
+at $\approx 5{,}000$ --- near $N=10$. Panel~(\subref{fig:noise-frontier-b})
+reports the resulting estimated whole-circuit fidelity, which decays
+exponentially with $N$: from $4.1\%$ at $N=5$ (the only bar within a usable
+range) to $2.7\times10^{-4}\%$ at $N=10$, and effectively zero beyond. The two
+panels jointly fix $N\approx5$ as the practical hardware frontier --- panel~(a)
+gives the cause (depth and entangling-gate count exceeding the coherence
+envelope) and panel~(b) the consequence (fidelity falling below any recoverable
+threshold).
 
 \input{tables/ibm-extended}
 
@@ -523,7 +534,18 @@ Streaming reveals three critical departures from synthetic benchmarks. \textbf{H
 
 \FloatBarrier
 
-Figure~\ref{fig:streaming-vs-synthetic} illustrates these findings. MILP remains the only solver achieving feasible solutions at all scales in the streaming scenario.
+Figure~\ref{fig:streaming-vs-synthetic} illustrates these findings.
+Panel~(\subref{fig:streaming-vs-synthetic-a}) compares the pure scheduling cost
+of MILP and QIEA under streaming-derived and synthetic priorities: at equal
+fleet size the streaming curves lie well above their synthetic counterparts, and
+QIEA on streaming data crosses into infeasibility (red crosses) from $N\geq8$,
+far earlier than on synthetic instances. Panel~(\subref{fig:streaming-vs-synthetic-b})
+explains the cause --- the average priority score derived from streaming stays
+uniformly high ($\approx 144$--$192$, against the $20$--$100$ synthetic range)
+while the health index remains low ($\approx 0.45$) and the damage index high
+($\approx 0.45$--$0.52$) across all $N$, so the entire streamed fleet sits in a
+persistently degraded, all-critical state. MILP remains the only solver
+achieving feasible solutions at all scales in the streaming scenario.
 
 \subsection{Complex-Constraint Streaming Pipeline with Hardware Validation}
 \label{sec:complex_streaming}
